@@ -1605,9 +1605,31 @@ function doGet(e) {
   try {
     var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
     var tab = 'MASTER CSV';
+    // Parse days parameter for date filtering (0=today, 1=yesterday, 7=week, etc.)
+    var daysParam = (e && e.parameter && e.parameter.days !== undefined) ? parseInt(e.parameter.days, 10) : -1;
+    var filterDate = null;
+    var filterDateEnd = null;
+    var tz = Session.getScriptTimeZone();
+    var now = new Date();
+    if (daysParam === 0) {
+      // Today only
+      filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      filterDateEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    } else if (daysParam === 1) {
+      // Yesterday only
+      var y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      filterDate = y;
+      filterDateEnd = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59);
+    } else if (daysParam > 1) {
+      // Last N days
+      filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysParam);
+      filterDateEnd = now;
+    }
+    // Convert filter dates to serial numbers for fast comparison
+    var epochBase = new Date(1899, 11, 30).getTime();
+    var filterSerial = filterDate ? Math.floor((filterDate.getTime() - epochBase) / 86400000) : 0;
+    var filterSerialEnd = filterDateEnd ? Math.floor((filterDateEnd.getTime() - epochBase) / 86400000) : 999999;
     // Only fetch the 14 columns we need using fast Sheets API batchGet
-    // A=unique, C=year, D=month, E=date, F=platform, G=company, M=quantity,
-    // O=masterSku, Q=category, W=grossReceived, Y=taxAmount, Z=netReceived, AA=cop, AB=p/l
     var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB'];
     var ranges = [];
     for (var i = 0; i < colRanges.length; i++) ranges.push("'" + tab + "'!" + colRanges[i]);
@@ -1640,18 +1662,25 @@ function doGet(e) {
       var dateVal = r < cols[3].length && cols[3][r].length > 0 ? cols[3][r][0] : '';
       var dateStr = ''; var monthKey = '';
       if (typeof dateVal === 'number') {
-        // Serial date number from Sheets API
+        // Date filter: skip rows outside the date range (fast serial comparison)
+        if (filterDate && (dateVal < filterSerial || dateVal > filterSerialEnd)) continue;
         var epoch = new Date(1899, 11, 30);
         var d = new Date(epoch.getTime() + dateVal * 86400000);
         dateStr = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
         monthKey = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM');
       } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+        if (filterDate && (dateVal < filterDate || dateVal > filterDateEnd)) continue;
         dateStr = Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'yyyy-MM-dd');
         monthKey = Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'yyyy-MM');
       } else if (dateVal) {
         var parsed = new Date(dateVal);
-        if (!isNaN(parsed.getTime())) { dateStr = Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd'); monthKey = Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM'); }
+        if (!isNaN(parsed.getTime())) {
+          if (filterDate && (parsed < filterDate || parsed > filterDateEnd)) continue;
+          dateStr = Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd'); monthKey = Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM');
+        }
       }
+      // If date filter active but row has no date, skip it
+      if (filterDate && !dateStr) continue;
       if (!monthKey) {
         var yr = String(r < cols[1].length && cols[1][r].length > 0 ? cols[1][r][0] : '').trim();
         var mo = String(r < cols[2].length && cols[2][r].length > 0 ? cols[2][r][0] : '').trim();

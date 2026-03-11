@@ -81,6 +81,15 @@ tr:hover td{background:#1f2b47}
 <div class="fbox">
 <h3>Filters</h3>
 <div class="frow">
+  <select id="fDateRange" onchange="loadData()" style="background:#0a1628;color:#39ff14;border:1px solid #39ff14;border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">
+    <option value="">All Time</option>
+    <option value="0">Today</option>
+    <option value="1">Yesterday</option>
+    <option value="7">Last 7 Days</option>
+    <option value="15">Last 15 Days</option>
+    <option value="30" selected>Last 30 Days</option>
+    <option value="60">Last 60 Days</option>
+  </select>
   <select id="fPlatform"><option value="">All Platforms</option></select>
   <select id="fCompany"><option value="">All Companies</option></select>
   <select id="fMonth"><option value="">All Months</option></select>
@@ -191,7 +200,7 @@ tr:hover td{background:#1f2b47}
 
 <script>
 // ===== REPLACE THIS WITH YOUR DEPLOYED WEB APP URL =====
-var API_URL='https://script.google.com/macros/s/AKfycbzU3_7RbpMQmO9Dt0XMNNKUm8wBkMW8KPjAA2QWhpZm8GI22P3ea8ISoYL3IelMYK7tUA/exec';
+var API_URL='https://script.google.com/macros/s/AKfycbwrxiB5E2gnHJlNKXeuMs1x_OEqZ9hiA5Cq2vm6pAte440J03BviVYcduZCMYhnjHZmoQ/exec';
 
 var DATA={},FILTERED_DATA={};
 var CHS={};
@@ -207,7 +216,10 @@ function loadData(){
   document.getElementById('app').style.display='none';
   var controller=new AbortController();
   var tid=setTimeout(function(){controller.abort();},120000);
-  fetch(API_URL,{redirect:'follow',signal:controller.signal})
+  var url=API_URL;
+  var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
+  if(daysVal!=='')url+='?days='+daysVal;
+  fetch(url,{redirect:'follow',signal:controller.signal})
     .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
     .then(function(text){
       if(!text||text.trim().length===0){onErr('Empty response.');return;}
@@ -289,6 +301,7 @@ function clearFilters(){
   document.getElementById('fPlatform').value='';
   document.getElementById('fCompany').value='';
   document.getElementById('fMonth').value='';
+  document.getElementById('fDateRange').value='30';
   FILTERED_DATA=DATA;
   renderAll();
 }
