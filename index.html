@@ -134,7 +134,7 @@ tr:hover td{background:#1f2b47}
   <select id="fMonth"><option value="">All Months</option></select>
   <button class="fbtn" onclick="applyFilters()">Apply</button>
   <button class="fbtn clr" onclick="clearFilters()">Clear</button>
-  <button class="fbtn ref" onclick="loadData()">Refresh</button>
+  <button class="fbtn ref" onclick="forceRefresh()">Refresh</button>
   <button class="fbtn dl" onclick="downloadCSV()">Download CSV</button>
 </div>
 </div>
@@ -251,9 +251,10 @@ function fmtCur(n){return '₹'+fmt(n);}
 function fmtPct(n){return (n||0).toFixed(1)+'%';}
 
 // ===== LOAD DATA =====
+var _refreshing=false;
 function loadData(){
   // Return cached all-time data instantly if available
-  if(DATA_CACHE['all']){onData(DATA_CACHE['all']);return;}
+  if(DATA_CACHE['all']){onData(DATA_CACHE['all']);startAutoRefresh();return;}
   document.getElementById('loader').style.display='block';
   document.getElementById('app').style.display='none';
   var controller=new AbortController();
@@ -263,9 +264,64 @@ function loadData(){
     .then(function(text){
       if(!text||text.trim().length===0){onErr('Empty response.');return;}
       if(text.trim().charAt(0)==='<'){onErr('API returned HTML. Deploy with access: Anyone');return;}
-      try{var d=JSON.parse(text);DATA_CACHE['all']=d;onData(d);}catch(e){onErr('JSON parse error: '+e.message);}
+      try{var d=JSON.parse(text);DATA_CACHE['all']=d;onData(d);startAutoRefresh();}catch(e){onErr('JSON parse error: '+e.message);}
     })
     .catch(function(e){clearTimeout(tid);onErr((e.name==='AbortError'?'Timeout (180s).':'Fetch failed: '+e.message));});
+}
+
+// ===== SILENT AUTO-REFRESH (every 60s) =====
+var _autoRefreshTimer=null;
+function startAutoRefresh(){
+  if(_autoRefreshTimer)return;
+  _autoRefreshTimer=setInterval(silentRefresh,60000);
+}
+function silentRefresh(){
+  if(_refreshing)return;
+  _refreshing=true;
+  var controller=new AbortController();
+  var tid=setTimeout(function(){controller.abort();_refreshing=false;},120000);
+  fetch(API_URL,{redirect:'follow',signal:controller.signal})
+    .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+    .then(function(text){
+      _refreshing=false;
+      if(!text||text.trim().length===0)return;
+      if(text.trim().charAt(0)==='<')return;
+      try{
+        var d=JSON.parse(text);
+        if(d.error)return;
+        DATA_CACHE['all']=d;
+        // Preserve current filter state — just re-apply filters on new data
+        applyDateFilter();
+        document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
+      }catch(e){}
+    })
+    .catch(function(e){clearTimeout(tid);_refreshing=false;});
+}
+
+// Force refresh (clears cache, re-fetches but preserves filters)
+function forceRefresh(){
+  if(_refreshing)return;
+  DATA_CACHE={};
+  _refreshing=true;
+  var btn=document.querySelector('.fbtn.ref');
+  if(btn){btn.textContent='Refreshing...';btn.style.opacity='0.6';}
+  var controller=new AbortController();
+  var tid=setTimeout(function(){controller.abort();_refreshing=false;if(btn){btn.textContent='Refresh';btn.style.opacity='1';}},120000);
+  fetch(API_URL,{redirect:'follow',signal:controller.signal})
+    .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+    .then(function(text){
+      _refreshing=false;if(btn){btn.textContent='Refresh';btn.style.opacity='1';}
+      if(!text||text.trim().length===0)return;
+      if(text.trim().charAt(0)==='<')return;
+      try{
+        var d=JSON.parse(text);
+        if(d.error)return;
+        DATA_CACHE['all']=d;
+        applyDateFilter();
+        document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
+      }catch(e){}
+    })
+    .catch(function(e){clearTimeout(tid);_refreshing=false;if(btn){btn.textContent='Refresh';btn.style.opacity='1';}});
 }
 
 function onErr(msg){document.getElementById('loader').innerHTML='<div style="color:#dc2f02;font-size:14px">'+msg+'</div><br><a href="'+API_URL+'" target="_blank" style="color:#4fc3f7">Test API directly</a>';}
