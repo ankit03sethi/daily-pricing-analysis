@@ -21,7 +21,7 @@ h1{text-align:center;color:#39ff14;font-size:20px;letter-spacing:1px}
 .cd.g{border-left-color:#39ff14}.cd.o{border-left-color:#e09f3e}.cd.r{border-left-color:#dc2f02}.cd.p{border-left-color:#a855f7}.cd.b{border-left-color:#4fc3f7}.cd.pk{border-left-color:#f72585}.cd.teal{border-left-color:#00bcd4}
 .cd .lb{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.5px}
 .cd .vl{font-size:22px;font-weight:700;color:#fff}
-.cd .sub-val{font-size:10px;color:#888;margin-top:2px}
+.cd .sub-val{font-size:28px;color:#888;margin-top:4px;font-weight:800}
 .cd .change{font-size:11px;margin-top:2px}
 .cd .change.up{color:#39ff14}.cd .change.down{color:#dc2f02}
 .fbox{background:#0d1a30;border-radius:10px;padding:12px;margin-bottom:12px}
@@ -319,9 +319,19 @@ function applyDateFilter(){
   var filteredDaily=(src.daily||[]).filter(function(d){return d.date>=startDate&&d.date<=endDate;});
   // Re-aggregate summary from filtered daily data
   var sm={totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0};
-  filteredDaily.forEach(function(d){sm.totalOrders+=d.orders;sm.totalQty+=d.qty;sm.grossReceived+=d.gross;sm.netReceived+=d.net;sm.cop+=d.cop;sm.pl+=d.pl;});
+  filteredDaily.forEach(function(d){sm.totalOrders+=d.orders;sm.totalQty+=d.qty;sm.grossReceived+=d.gross;sm.netReceived+=d.net;sm.taxAmount+=(d.tax||0);sm.cop+=d.cop;sm.pl+=d.pl;});
   sm.avgOrderValue=sm.totalOrders>0?sm.grossReceived/sm.totalOrders:0;
   sm.margin=sm.grossReceived>0?(sm.pl/sm.grossReceived*100):0;
+  // Re-aggregate byPlatform and byCompany from dailyDetail (date+platform+company granularity)
+  var filteredByPlatform={},filteredByCompany={},seenPlatOrd={},seenCompOrd={};
+  var dd=(src.dailyDetail||[]).filter(function(d){return d.date>=startDate&&d.date<=endDate;});
+  dd.forEach(function(d){
+    var p=d.platform,c=d.company;
+    if(!filteredByPlatform[p]){filteredByPlatform[p]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};}
+    filteredByPlatform[p].orders+=d.orders;filteredByPlatform[p].qty+=d.qty;filteredByPlatform[p].gross+=d.gross;filteredByPlatform[p].net+=d.net;filteredByPlatform[p].tax+=d.tax;filteredByPlatform[p].cop+=d.cop;filteredByPlatform[p].pl+=d.pl;
+    if(!filteredByCompany[c]){filteredByCompany[c]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};}
+    filteredByCompany[c].orders+=d.orders;filteredByCompany[c].qty+=d.qty;filteredByCompany[c].gross+=d.gross;filteredByCompany[c].net+=d.net;filteredByCompany[c].tax+=d.tax;filteredByCompany[c].cop+=d.cop;filteredByCompany[c].pl+=d.pl;
+  });
   // Filter pricing rows by date
   var filteredPricing=null;
   if(src.pricing){
@@ -339,8 +349,10 @@ function applyDateFilter(){
       }
     });
   }
-  // Build filtered data object (keep platform/company/month/category from source, override summary & daily & pricing)
-  DATA={summary:sm,byPlatform:src.byPlatform,byCompany:src.byCompany,byMonth:src.byMonth,byCategory:src.byCategory,daily:filteredDaily,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,pricing:filteredPricing,timestamp:src.timestamp};
+  // Build filtered data object (use re-aggregated byPlatform/byCompany from dailyDetail, override summary & daily & pricing)
+  var useBP=(dd.length>0)?filteredByPlatform:src.byPlatform;
+  var useBC=(dd.length>0)?filteredByCompany:src.byCompany;
+  DATA={summary:sm,byPlatform:useBP,byCompany:useBC,byMonth:src.byMonth,byCategory:src.byCategory,daily:filteredDaily,dailyDetail:dd,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,pricing:filteredPricing,timestamp:src.timestamp};
   FILTERED_DATA=DATA;
   renderAll();
 }
@@ -628,8 +640,8 @@ function renderPricing(){
   var p=FILTERED_DATA.pricing;
   if(!p){document.getElementById('pricingCards').innerHTML='';return;}
   var html='';
-  html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+' under</div></div>';
-  html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+' over</div></div>';
+  html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl" style="font-size:18px">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+' under</div></div>';
+  html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl" style="font-size:18px">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+' over</div></div>';
   document.getElementById('pricingCards').innerHTML=html;
 }
 
