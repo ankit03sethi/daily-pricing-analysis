@@ -1646,6 +1646,8 @@ function doGet(e) {
     // col indices: 0=unique,1=year,2=month,3=date,4=platform,5=company,6=qty,7=masterSku,8=category,9=gross,10=taxAmt,11=net,12=cop,13=pl
     var summary = {totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0};
     var byPlatform={},byCompany={},byMonthMap={},byCategory={},bySku={},dailyMap={};
+    // Track unique order IDs to avoid double-counting multi-item orders
+    var seenOrders={},seenByPlatform={},seenByCompany={},seenByMonth={},seenByCategory={},seenByDaily={};
     for (var r = 0; r < maxRows; r++) {
       var unique = r < cols[0].length && cols[0][r].length > 0 ? cols[0][r][0] : '';
       if (!unique || String(unique).trim() === '') continue;
@@ -1686,15 +1688,20 @@ function doGet(e) {
         var mo = String(r < cols[2].length && cols[2][r].length > 0 ? cols[2][r][0] : '').trim();
         if (yr && mo) monthKey = yr + '-' + _monthToNum(mo);
       }
-      summary.totalOrders++; summary.totalQty+=qty; summary.grossReceived+=gross; summary.netReceived+=net; summary.taxAmount+=tax; summary.cop+=cop; summary.pl+=pl;
-      if (!byPlatform[platform]) byPlatform[platform]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};
-      byPlatform[platform].orders++; byPlatform[platform].qty+=qty; byPlatform[platform].gross+=gross; byPlatform[platform].net+=net; byPlatform[platform].tax+=tax; byPlatform[platform].cop+=cop; byPlatform[platform].pl+=pl;
-      if (!byCompany[company]) byCompany[company]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};
-      byCompany[company].orders++; byCompany[company].qty+=qty; byCompany[company].gross+=gross; byCompany[company].net+=net; byCompany[company].tax+=tax; byCompany[company].cop+=cop; byCompany[company].pl+=pl;
-      if (monthKey) { if (!byMonthMap[monthKey]) byMonthMap[monthKey]={month:monthKey,orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0}; byMonthMap[monthKey].orders++; byMonthMap[monthKey].qty+=qty; byMonthMap[monthKey].gross+=gross; byMonthMap[monthKey].net+=net; byMonthMap[monthKey].tax+=tax; byMonthMap[monthKey].cop+=cop; byMonthMap[monthKey].pl+=pl; }
-      if (!byCategory[category]) byCategory[category]={orders:0,qty:0,gross:0,net:0,cop:0,pl:0};
-      byCategory[category].orders++; byCategory[category].qty+=qty; byCategory[category].gross+=gross; byCategory[category].net+=net; byCategory[category].cop+=cop; byCategory[category].pl+=pl;
-      if (dateStr) { if (!dailyMap[dateStr]) dailyMap[dateStr]={date:dateStr,orders:0,qty:0,gross:0,net:0,cop:0,pl:0}; dailyMap[dateStr].orders++; dailyMap[dateStr].qty+=qty; dailyMap[dateStr].gross+=gross; dailyMap[dateStr].net+=net; dailyMap[dateStr].cop+=cop; dailyMap[dateStr].pl+=pl; }
+      // Count unique orders only (column A may repeat for multi-item orders)
+      if (!seenOrders[unique]) { seenOrders[unique]=true; summary.totalOrders++; }
+      summary.totalQty+=qty; summary.grossReceived+=gross; summary.netReceived+=net; summary.taxAmount+=tax; summary.cop+=cop; summary.pl+=pl;
+      if (!byPlatform[platform]) { byPlatform[platform]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0}; seenByPlatform[platform]={}; }
+      if (!seenByPlatform[platform][unique]) { seenByPlatform[platform][unique]=true; byPlatform[platform].orders++; }
+      byPlatform[platform].qty+=qty; byPlatform[platform].gross+=gross; byPlatform[platform].net+=net; byPlatform[platform].tax+=tax; byPlatform[platform].cop+=cop; byPlatform[platform].pl+=pl;
+      if (!byCompany[company]) { byCompany[company]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0}; seenByCompany[company]={}; }
+      if (!seenByCompany[company][unique]) { seenByCompany[company][unique]=true; byCompany[company].orders++; }
+      byCompany[company].qty+=qty; byCompany[company].gross+=gross; byCompany[company].net+=net; byCompany[company].tax+=tax; byCompany[company].cop+=cop; byCompany[company].pl+=pl;
+      if (monthKey) { if (!byMonthMap[monthKey]) { byMonthMap[monthKey]={month:monthKey,orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0}; seenByMonth[monthKey]={}; } if (!seenByMonth[monthKey][unique]) { seenByMonth[monthKey][unique]=true; byMonthMap[monthKey].orders++; } byMonthMap[monthKey].qty+=qty; byMonthMap[monthKey].gross+=gross; byMonthMap[monthKey].net+=net; byMonthMap[monthKey].tax+=tax; byMonthMap[monthKey].cop+=cop; byMonthMap[monthKey].pl+=pl; }
+      if (!byCategory[category]) { byCategory[category]={orders:0,qty:0,gross:0,net:0,cop:0,pl:0}; seenByCategory[category]={}; }
+      if (!seenByCategory[category][unique]) { seenByCategory[category][unique]=true; byCategory[category].orders++; }
+      byCategory[category].qty+=qty; byCategory[category].gross+=gross; byCategory[category].net+=net; byCategory[category].cop+=cop; byCategory[category].pl+=pl;
+      if (dateStr) { if (!dailyMap[dateStr]) { dailyMap[dateStr]={date:dateStr,orders:0,qty:0,gross:0,net:0,cop:0,pl:0}; seenByDaily[dateStr]={}; } if (!seenByDaily[dateStr][unique]) { seenByDaily[dateStr][unique]=true; dailyMap[dateStr].orders++; } dailyMap[dateStr].qty+=qty; dailyMap[dateStr].gross+=gross; dailyMap[dateStr].net+=net; dailyMap[dateStr].cop+=cop; dailyMap[dateStr].pl+=pl; }
       if (!bySku[sku]) bySku[sku]={sku:sku,platform:platform,orders:0,qty:0,gross:0,net:0,cop:0,pl:0};
       bySku[sku].orders++; bySku[sku].qty+=qty; bySku[sku].gross+=gross; bySku[sku].net+=net; bySku[sku].cop+=cop; bySku[sku].pl+=pl;
     }
