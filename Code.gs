@@ -1625,10 +1625,9 @@ function doGet(e) {
       filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysParam);
       filterDateEnd = now;
     }
-    // Convert filter dates to serial numbers for fast comparison
-    var epochBase = new Date(1899, 11, 30).getTime();
-    var filterSerial = filterDate ? Math.floor((filterDate.getTime() - epochBase) / 86400000) : 0;
-    var filterSerialEnd = filterDateEnd ? Math.floor((filterDateEnd.getTime() - epochBase) / 86400000) : 999999;
+    // Convert filter dates to yyyy-MM-dd strings for reliable comparison
+    var filterStartStr = filterDate ? Utilities.formatDate(filterDate, tz, 'yyyy-MM-dd') : '';
+    var filterEndStr = filterDateEnd ? Utilities.formatDate(filterDateEnd, tz, 'yyyy-MM-dd') : '';
     // Only fetch the 14 columns we need using fast Sheets API batchGet
     var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB'];
     var ranges = [];
@@ -1664,25 +1663,22 @@ function doGet(e) {
       var dateVal = r < cols[3].length && cols[3][r].length > 0 ? cols[3][r][0] : '';
       var dateStr = ''; var monthKey = '';
       if (typeof dateVal === 'number') {
-        // Date filter: skip rows outside the date range (fast serial comparison)
-        if (filterDate && (dateVal < filterSerial || dateVal > filterSerialEnd)) continue;
         var epoch = new Date(1899, 11, 30);
         var d = new Date(epoch.getTime() + dateVal * 86400000);
-        dateStr = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-        monthKey = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM');
+        dateStr = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+        monthKey = Utilities.formatDate(d, tz, 'yyyy-MM');
       } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
-        if (filterDate && (dateVal < filterDate || dateVal > filterDateEnd)) continue;
-        dateStr = Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-        monthKey = Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'yyyy-MM');
+        dateStr = Utilities.formatDate(dateVal, tz, 'yyyy-MM-dd');
+        monthKey = Utilities.formatDate(dateVal, tz, 'yyyy-MM');
       } else if (dateVal) {
         var parsed = new Date(dateVal);
         if (!isNaN(parsed.getTime())) {
-          if (filterDate && (parsed < filterDate || parsed > filterDateEnd)) continue;
-          dateStr = Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd'); monthKey = Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM');
+          dateStr = Utilities.formatDate(parsed, tz, 'yyyy-MM-dd');
+          monthKey = Utilities.formatDate(parsed, tz, 'yyyy-MM');
         }
       }
-      // If date filter active but row has no date, skip it
-      if (filterDate && !dateStr) continue;
+      // Date filter: compare yyyy-MM-dd strings (reliable, no serial number issues)
+      if (filterStartStr && (!dateStr || dateStr < filterStartStr || dateStr > filterEndStr)) continue;
       if (!monthKey) {
         var yr = String(r < cols[1].length && cols[1][r].length > 0 ? cols[1][r][0] : '').trim();
         var mo = String(r < cols[2].length && cols[2][r].length > 0 ? cols[2][r][0] : '').trim();
