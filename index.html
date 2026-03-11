@@ -64,7 +64,7 @@ tr:hover td{background:#1f2b47}
 /* Modal styles matching SKU Wise */
 .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:100;overflow-y:auto;padding:20px}
 .modal-overlay.show{display:block}
-.modal-box{background:#111827;border:1px solid #444;border-radius:12px;max-width:1200px;margin:0 auto;padding:20px;position:relative;min-height:300px}
+.modal-box{background:#111827;border:1px solid #444;border-radius:12px;max-width:1200px;margin:0 auto;padding:20px;position:relative;min-height:300px;overflow-x:auto}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #444}
 .modal-title{color:#39ff14;font-size:16px;font-weight:700}
 .modal-close{background:#dc2f02;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer}
@@ -640,6 +640,12 @@ function renderPricing(){
   var p=FILTERED_DATA.pricing;
   if(!p){document.getElementById('pricingCards').innerHTML='';return;}
   var html='';
+  // NET S/E card
+  var netDiff=Math.abs(p.short.totalDiff)-p.excess.totalDiff;
+  var netColor=netDiff>0?'#dc2f02':'#39ff14';
+  var netSign=netDiff>0?'-':'+';
+  var netClass=netDiff>0?'r':'g';
+  html+='<div class="cd '+netClass+'"><div class="lb">NET S/E</div><div class="vl" style="font-size:18px">'+(p.short.count+p.excess.count)+'</div><div class="sub-val" style="color:'+netColor+'">'+netSign+fmt(Math.abs(netDiff))+'</div></div>';
   html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl" style="font-size:18px">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+' under</div></div>';
   html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl" style="font-size:18px">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+' over</div></div>';
   document.getElementById('pricingCards').innerHTML=html;
@@ -779,21 +785,62 @@ function renderDrillTable(){
     if(DM.company==='ALL'){rows=[];for(var cc in DM.companies)rows=rows.concat(DM.companies[cc].rows);}
     else{rows=DM.companies[DM.company]?DM.companies[DM.company].rows:[];}
     rows.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
-    var h='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input class="srch" id="drillSearch" onkeyup="drillFilterTable()" placeholder="Search SKUs..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="drillDownloadCSV()" class="fbtn dl">Download CSV</button><span style="color:#aaa;margin-left:auto;font-size:12px">SHOWING '+rows.length+' ROWS</span></div>';
-    h+='<div class="tbox" style="margin:0"><h3>SKU DETAILS<span>SHOWING 1-'+rows.length+' OF '+rows.length+'</span></h3><div class="twrap"><table id="drillTable"><thead><tr>';
-    h+='<th>ORDER ID</th><th>SKU</th><th>CATEGORY</th><th>QTY</th><th>REQUIRED</th><th>GROSS</th><th>DIFF</th><th>DATE</th>';
-    h+='</tr></thead><tbody>';
+    // SKU Summary: group by skuId+platform+company
+    var groups={};
     for(var i=0;i<rows.length;i++){
-      var rr=rows[i],dc=rr.diff<0?'loss':'profit';
-      h+='<tr><td style="text-align:left">'+rr.unique+'</td><td>'+rr.sku+'</td><td>'+rr.category+'</td><td>'+rr.qty+'</td><td>'+fmt(rr.required)+'</td><td>'+fmt(rr.gross)+'</td><td class="'+dc+'">'+fmt(rr.diff)+'</td><td>'+rr.date+'</td></tr>';
+      var r=rows[i],gk=(r.skuId||r.sku)+'|'+(r.platform||'')+'|'+(r.company||'');
+      if(!groups[gk]){groups[gk]={skuId:r.skuId||r.sku,platform:r.platform||'',company:r.company||'',sku:r.sku,category:r.category,subCategory:r.subCategory||'',singleCombo:r.singleCombo||'',color:r.color||'',product:r.product||'',courier:r.courier||'',count:0,qty:0,required:0,gross:0,diff:0,taxAmt:0,net:0,cop:0,pl:0,actualPrice:0,sellingPrice:0,estSellingPrice:0,rows:[]};}
+      groups[gk].count++;groups[gk].qty+=r.qty;groups[gk].required+=r.required;groups[gk].gross+=r.gross;groups[gk].diff+=r.diff;groups[gk].taxAmt+=(r.taxAmt||0);groups[gk].net+=(r.net||0);groups[gk].cop+=(r.cop||0);groups[gk].pl+=(r.pl||0);groups[gk].actualPrice+=(r.actualPrice||0);groups[gk].sellingPrice+=(r.sellingPrice||0);groups[gk].estSellingPrice+=(r.estSellingPrice||0);groups[gk].rows.push(r);
+    }
+    var gArr=Object.values(groups).sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
+    var h='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input class="srch" id="drillSearch" onkeyup="drillFilterTable()" placeholder="Search SKUs..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="drillDownloadCSV()" class="fbtn dl">Download CSV</button><button onclick="showAllPricingRows()" class="fbtn" style="background:#a855f7;color:#fff">ALL</button><span style="color:#aaa;margin-left:auto;font-size:12px">'+gArr.length+' UNIQUE SKUs FROM '+rows.length+' ROWS</span></div>';
+    h+='<div class="tbox" style="margin:0"><h3>SKU SUMMARY<span>'+gArr.length+' SKUs</span></h3><div class="twrap"><table id="drillTable"><thead><tr>';
+    h+='<th>COUNT</th><th>SKU ID</th><th>PLATFORM</th><th>COMPANY</th><th>MASTER SKU</th><th>CATEGORY</th><th>SUB CAT</th><th>PRODUCT</th><th>COLOR</th><th>QTY</th><th>REQUIRED</th><th>GROSS</th><th>DIFF</th><th>TAX AMT</th><th>NET</th><th>COP</th><th>P/L</th><th>ACTUAL PRICE</th><th>SELLING PRICE</th><th>EST PRICE</th>';
+    h+='</tr></thead><tbody>';
+    for(var i=0;i<gArr.length;i++){
+      var g=gArr[i],dc=g.diff<0?'loss':'profit';
+      h+='<tr style="cursor:pointer" onclick="expandSkuGroup('+i+')">';
+      h+='<td style="color:#4fc3f7;font-weight:700">'+g.count+'</td><td>'+g.skuId+'</td><td>'+g.platform+'</td><td>'+g.company+'</td><td>'+g.sku+'</td><td>'+g.category+'</td><td>'+g.subCategory+'</td><td>'+g.product+'</td><td>'+g.color+'</td><td>'+g.qty+'</td><td>'+fmt(g.required)+'</td><td>'+fmt(g.gross)+'</td><td class="'+dc+'">'+fmt(g.diff)+'</td><td>'+fmt(g.taxAmt)+'</td><td>'+fmt(g.net)+'</td><td>'+fmt(g.cop)+'</td><td class="'+(g.pl>=0?'profit':'loss')+'">'+fmt(g.pl)+'</td><td>'+fmt(g.actualPrice)+'</td><td>'+fmt(g.sellingPrice)+'</td><td>'+fmt(g.estSellingPrice)+'</td>';
+      h+='</tr>';
     }
     h+='</tbody></table></div></div>';
     document.getElementById('modalContent').innerHTML=h;
+    // Store groups for expand
+    window._skuGroups=gArr;
+    window._allPricingRows=rows;
   } else {
-    // For financial cards - show a summary message (no row-level data available for non-pricing cards)
     var h='<div style="padding:20px;text-align:center;color:#aaa;font-size:14px">Detailed row-level data is available for SHORT and EXCESS pricing cards.<br>Financial Overview cards show aggregated Platform &rarr; Company breakdown.</div>';
     document.getElementById('modalContent').innerHTML=h;
   }
+}
+
+function expandSkuGroup(idx){
+  var g=window._skuGroups[idx];
+  if(!g)return;
+  DM.level=4;
+  document.getElementById('modalTitle').textContent=DM.label+' - SKU: '+g.skuId;
+  document.getElementById('modalNav').style.display='block';
+  document.getElementById('modalNav').innerHTML='<button class="fbtn" style="font-size:11px" onclick="drillToCompany(\''+DM.platform+'\')">◀ Back</button> <span style="color:#aaa;font-size:12px">'+DM.label+' → '+(DM.platform||'ALL')+' → '+(DM.company||'ALL')+' → '+g.skuId+'</span>';
+  showPricingRows(g.rows);
+}
+
+function showAllPricingRows(){
+  var rows=window._allPricingRows;
+  if(!rows)return;
+  showPricingRows(rows);
+}
+
+function showPricingRows(rows){
+  var h='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input class="srch" id="drillSearch" onkeyup="drillFilterTable()" placeholder="Search..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="drillDownloadCSV()" class="fbtn dl">Download CSV</button><span style="color:#aaa;margin-left:auto;font-size:12px">SHOWING '+rows.length+' ROWS</span></div>';
+  h+='<div class="tbox" style="margin:0"><h3>ALL DETAILS<span>'+rows.length+' rows</span></h3><div class="twrap"><table id="drillTable"><thead><tr>';
+  h+='<th>UNIQUE</th><th>ORDER ID</th><th>TRACKING ID</th><th>COMPANY ID</th><th>SKU ID</th><th>SUB ORDER ID</th><th>DATE</th><th>PLATFORM</th><th>COMPANY</th><th>QTY</th><th>COURIER</th><th>MASTER SKU</th><th>SINGLE/COMBO</th><th>CATEGORY</th><th>SUB CAT</th><th>COLOR</th><th>PRODUCT</th><th>LINK</th><th>REQUIRED</th><th>GROSS</th><th>TAX %</th><th>TAX AMT</th><th>NET</th><th>COP</th><th>P/L</th><th>ACTUAL PRICE</th><th>SELLING PRICE</th><th>EST PRICE</th><th>DIFF</th>';
+  h+='</tr></thead><tbody>';
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i],dc=r.diff<0?'loss':'profit';
+    h+='<tr><td style="text-align:left;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+r.unique+'</td><td>'+(r.orderId||'')+'</td><td>'+(r.trackingId||'')+'</td><td>'+(r.companyId||'')+'</td><td>'+(r.skuId||'')+'</td><td>'+(r.subOrderId||'')+'</td><td>'+r.date+'</td><td>'+(r.platform||'')+'</td><td>'+(r.company||'')+'</td><td>'+r.qty+'</td><td>'+(r.courier||'')+'</td><td>'+r.sku+'</td><td>'+(r.singleCombo||'')+'</td><td>'+r.category+'</td><td>'+(r.subCategory||'')+'</td><td>'+(r.color||'')+'</td><td>'+(r.product||'')+'</td><td>'+(r.link?'<a href="'+r.link+'" target="_blank" style="color:#4fc3f7">Link</a>':'')+'</td><td>'+fmt(r.required)+'</td><td>'+fmt(r.gross)+'</td><td>'+(r.taxPct||0)+'%</td><td>'+fmt(r.taxAmt||0)+'</td><td>'+fmt(r.net||0)+'</td><td>'+fmt(r.cop||0)+'</td><td class="'+(r.pl>=0?'profit':'loss')+'">'+fmt(r.pl||0)+'</td><td>'+fmt(r.actualPrice||0)+'</td><td>'+fmt(r.sellingPrice||0)+'</td><td>'+fmt(r.estSellingPrice||0)+'</td><td class="'+dc+'">'+fmt(r.diff)+'</td></tr>';
+  }
+  h+='</tbody></table></div></div>';
+  document.getElementById('modalContent').innerHTML=h;
 }
 
 function drillFilterTable(){
@@ -803,8 +850,12 @@ function drillFilterTable(){
 }
 
 function drillDownloadCSV(){
-  var rows=document.querySelectorAll('#drillTable tbody tr:not([style*="display: none"])');
-  var csv='ORDER ID,SKU,CATEGORY,QTY,REQUIRED,GROSS,DIFF,DATE\n';
+  var table=document.getElementById('drillTable');
+  if(!table)return;
+  var ths=table.querySelectorAll('thead th');
+  var headers=[];for(var i=0;i<ths.length;i++)headers.push('"'+ths[i].textContent.replace(/"/g,'""')+'"');
+  var csv=headers.join(',')+'\n';
+  var rows=table.querySelectorAll('tbody tr:not([style*="display: none"])');
   for(var i=0;i<rows.length;i++){var cells=rows[i].querySelectorAll('td');var r=[];for(var j=0;j<cells.length;j++)r.push('"'+cells[j].textContent.replace(/"/g,'""')+'"');csv+=r.join(',')+'\n';}
   var blob=new Blob([csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pricing_'+DM.type+'_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
 }
