@@ -98,7 +98,7 @@ tr:hover td{background:#1f2b47}
 <div class="fbox">
 <h3>Filters</h3>
 <div class="frow">
-  <select id="fDateRange" onchange="loadData()" style="background:#0a1628;color:#39ff14;border:1px solid #39ff14;border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">
+  <select id="fDateRange" onchange="applyDateFilter()" style="background:#0a1628;color:#39ff14;border:1px solid #39ff14;border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">
     <option value="">All Time</option>
     <option value="0">Today</option>
     <option value="1" selected>Yesterday</option>
@@ -230,24 +230,20 @@ function fmtPct(n){return (n||0).toFixed(1)+'%';}
 
 // ===== LOAD DATA =====
 function loadData(){
-  var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
-  var cacheKey=daysVal===''?'all':daysVal;
-  // Return cached data instantly if available
-  if(DATA_CACHE[cacheKey]){onData(DATA_CACHE[cacheKey]);return;}
+  // Return cached all-time data instantly if available
+  if(DATA_CACHE['all']){onData(DATA_CACHE['all']);return;}
   document.getElementById('loader').style.display='block';
   document.getElementById('app').style.display='none';
   var controller=new AbortController();
-  var tid=setTimeout(function(){controller.abort();},120000);
-  var url=API_URL;
-  if(daysVal!=='')url+='?days='+daysVal;
-  fetch(url,{redirect:'follow',signal:controller.signal})
+  var tid=setTimeout(function(){controller.abort();},180000);
+  fetch(API_URL,{redirect:'follow',signal:controller.signal})
     .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
     .then(function(text){
       if(!text||text.trim().length===0){onErr('Empty response.');return;}
       if(text.trim().charAt(0)==='<'){onErr('API returned HTML. Deploy with access: Anyone');return;}
-      try{var d=JSON.parse(text);DATA_CACHE[cacheKey]=d;onData(d);}catch(e){onErr('JSON parse error: '+e.message);}
+      try{var d=JSON.parse(text);DATA_CACHE['all']=d;onData(d);}catch(e){onErr('JSON parse error: '+e.message);}
     })
-    .catch(function(e){clearTimeout(tid);onErr((e.name==='AbortError'?'Timeout (120s).':'Fetch failed: '+e.message));});
+    .catch(function(e){clearTimeout(tid);onErr((e.name==='AbortError'?'Timeout (180s).':'Fetch failed: '+e.message));});
 }
 
 function onErr(msg){document.getElementById('loader').innerHTML='<div style="color:#dc2f02;font-size:14px">'+msg+'</div><br><a href="'+API_URL+'" target="_blank" style="color:#4fc3f7">Test API directly</a>';}
@@ -259,7 +255,7 @@ function onData(d){
   document.getElementById('app').style.display='block';
   document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
   buildFilters();
-  renderAll();
+  applyDateFilter(); // Apply date filter client-side then render
 }
 
 // ===== FILTERS =====
@@ -273,6 +269,57 @@ function buildFilters(){
   (DATA.platforms||[]).forEach(function(p){pSel.innerHTML+='<option value="'+p+'">'+p+'</option>';});
   (DATA.companies||[]).forEach(function(c){cSel.innerHTML+='<option value="'+c+'">'+c+'</option>';});
   (DATA.byMonth||[]).forEach(function(m){mSel.innerHTML+='<option value="'+m.month+'">'+m.month+'</option>';});
+}
+
+// ===== CLIENT-SIDE DATE FILTER (no API call needed!) =====
+function applyDateFilter(){
+  if(!DATA_CACHE['all'])return;
+  var src=DATA_CACHE['all'];
+  var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
+  if(daysVal===''){
+    // All Time - use data as-is
+    DATA=src; FILTERED_DATA=src; renderAll(); return;
+  }
+  var days=parseInt(daysVal,10);
+  var now=new Date(); var today=now.toISOString().split('T')[0];
+  var startDate,endDate;
+  if(days===0){
+    startDate=today; endDate=today;
+  } else if(days===1){
+    var y=new Date(now); y.setDate(y.getDate()-1);
+    startDate=y.toISOString().split('T')[0]; endDate=startDate;
+  } else {
+    var s=new Date(now); s.setDate(s.getDate()-days);
+    startDate=s.toISOString().split('T')[0]; endDate=today;
+  }
+  // Filter daily array by date range
+  var filteredDaily=(src.daily||[]).filter(function(d){return d.date>=startDate&&d.date<=endDate;});
+  // Re-aggregate summary from filtered daily data
+  var sm={totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0};
+  filteredDaily.forEach(function(d){sm.totalOrders+=d.orders;sm.totalQty+=d.qty;sm.grossReceived+=d.gross;sm.netReceived+=d.net;sm.cop+=d.cop;sm.pl+=d.pl;});
+  sm.avgOrderValue=sm.totalOrders>0?sm.grossReceived/sm.totalOrders:0;
+  sm.margin=sm.grossReceived>0?(sm.pl/sm.grossReceived*100):0;
+  // Filter pricing rows by date
+  var filteredPricing=null;
+  if(src.pricing){
+    filteredPricing={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}}};
+    ['short','excess'].forEach(function(pType){
+      for(var pp in src.pricing[pType].byPlatform){
+        for(var cc in src.pricing[pType].byPlatform[pp].byCompany){
+          var fRows=src.pricing[pType].byPlatform[pp].byCompany[cc].rows.filter(function(r){return r.date>=startDate&&r.date<=endDate;});
+          if(fRows.length>0){
+            if(!filteredPricing[pType].byPlatform[pp])filteredPricing[pType].byPlatform[pp]={count:0,diff:0,byCompany:{}};
+            filteredPricing[pType].byPlatform[pp].byCompany[cc]={count:fRows.length,diff:0,rows:fRows};
+            fRows.forEach(function(r){filteredPricing[pType].byPlatform[pp].byCompany[cc].diff+=r.diff;filteredPricing[pType].byPlatform[pp].count++;filteredPricing[pType].byPlatform[pp].diff+=r.diff;filteredPricing[pType].count++;filteredPricing[pType].totalDiff+=r.diff;});
+          }
+        }
+      }
+    });
+  }
+  // Build filtered data object (keep platform/company/month/category from source, override summary & daily & pricing)
+  DATA={summary:sm,byPlatform:src.byPlatform,byCompany:src.byCompany,byMonth:src.byMonth,byCategory:src.byCategory,daily:filteredDaily,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,pricing:filteredPricing,timestamp:src.timestamp};
+  FILTERED_DATA=DATA;
+  renderAll();
 }
 
 function applyFilters(){
@@ -323,8 +370,7 @@ function clearFilters(){
   document.getElementById('fCompany').value='';
   document.getElementById('fMonth').value='';
   document.getElementById('fDateRange').value='1';
-  FILTERED_DATA=DATA;
-  renderAll();
+  applyDateFilter();
 }
 
 // ===== RENDER ALL =====
