@@ -645,8 +645,8 @@ function renderPricing(){
   var netSign=netDiff>0?'-':'+';
   var netClass=netDiff>0?'r':'g';
   html+='<div class="cd '+netClass+'"><div class="lb">NET S/E</div><div class="vl">'+(p.short.count+p.excess.count)+'</div><div class="sub-val" style="color:'+netColor+'">'+netSign+fmt(Math.abs(netDiff))+'</div></div>';
-  html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+' under</div></div>';
-  html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+' over</div></div>';
+  html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+'</div></div>';
+  html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+'</div></div>';
   document.getElementById('pricingCards').innerHTML=html;
 }
 
