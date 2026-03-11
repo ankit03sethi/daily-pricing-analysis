@@ -98,8 +98,6 @@ tr:hover td{background:#1f2b47}
 <div class="section-title">FINANCIAL OVERVIEW</div>
 <div class="cards" id="summaryCards"></div>
 
-<!-- PRICING OVERVIEW -->
-<div class="section-title" style="color:#ff6b6b">PRICING OVERVIEW</div>
 <div class="cards" id="pricingCards"></div>
 
 <!-- Drill-Down Modal (shared by all cards) -->
@@ -645,9 +643,9 @@ function renderPricing(){
   var netColor=netDiff>0?'#dc2f02':'#39ff14';
   var netSign=netDiff>0?'-':'+';
   var netClass=netDiff>0?'r':'g';
-  html+='<div class="cd '+netClass+'"><div class="lb">NET S/E</div><div class="vl" style="font-size:18px">'+(p.short.count+p.excess.count)+'</div><div class="sub-val" style="color:'+netColor+'">'+netSign+fmt(Math.abs(netDiff))+'</div></div>';
-  html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl" style="font-size:18px">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+' under</div></div>';
-  html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl" style="font-size:18px">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+' over</div></div>';
+  html+='<div class="cd '+netClass+'"><div class="lb">NET S/E</div><div class="vl">'+(p.short.count+p.excess.count)+'</div><div class="sub-val" style="color:'+netColor+'">'+netSign+fmt(Math.abs(netDiff))+'</div></div>';
+  html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+' under</div></div>';
+  html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+' over</div></div>';
   document.getElementById('pricingCards').innerHTML=html;
 }
 
@@ -675,11 +673,18 @@ function closeModal(){
 }
 function modalGoBack(){
   if(DM.level<=1){closeModal();return;}
+  if(DM.level===4){
+    DM.level=3;
+    document.getElementById('modalTitle').textContent=DM.label+' - Details';
+    document.getElementById('modalNav').style.display='flex';
+    document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread" id="modalBread"><span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span> &rarr; <span>'+DM.company+'</span></div>';
+    renderDrillTable();return;
+  }
   if(DM.level===3){
     DM.level=2;DM.company='';
     document.getElementById('modalTitle').textContent=DM.label+' - '+(DM.platform||'ALL Platforms')+' - Companies';
     document.getElementById('modalNav').style.display='flex';
-    document.getElementById('modalBread').innerHTML='<span>'+DM.label+'</span> &rarr; <span>'+(DM.platform||'ALL')+'</span>';
+    document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread" id="modalBread"><span>'+DM.label+'</span> &rarr; <span>'+(DM.platform||'ALL')+'</span></div>';
     renderDrillCompanies();return;
   }
   if(DM.level===2){
@@ -720,7 +725,7 @@ function drillToPlatform(plat){
   DM.level=2;DM.platform=plat||'ALL';
   document.getElementById('modalTitle').textContent=DM.label+' - '+(DM.platform)+' - Companies';
   document.getElementById('modalNav').style.display='flex';
-  document.getElementById('modalBread').innerHTML='<span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span>';
+  document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread" id="modalBread"><span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span></div>';
   renderDrillCompanies();
 }
 
@@ -774,7 +779,7 @@ function drillToCompany(comp){
   DM.level=3;DM.company=comp||'ALL';
   document.getElementById('modalTitle').textContent=DM.label+' - Details';
   document.getElementById('modalNav').style.display='flex';
-  document.getElementById('modalBread').innerHTML='<span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span> &rarr; <span>'+DM.company+'</span>';
+  document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread" id="modalBread"><span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span> &rarr; <span>'+DM.company+'</span></div>';
   renderDrillTable();
 }
 
@@ -792,7 +797,7 @@ function renderDrillTable(){
       if(!groups[gk]){groups[gk]={skuId:r.skuId||r.sku,platform:r.platform||'',company:r.company||'',sku:r.sku,category:r.category,subCategory:r.subCategory||'',singleCombo:r.singleCombo||'',color:r.color||'',product:r.product||'',courier:r.courier||'',count:0,qty:0,required:0,gross:0,diff:0,taxAmt:0,net:0,cop:0,pl:0,actualPrice:0,sellingPrice:0,estSellingPrice:0,rows:[]};}
       groups[gk].count++;groups[gk].qty+=r.qty;groups[gk].required+=r.required;groups[gk].gross+=r.gross;groups[gk].diff+=r.diff;groups[gk].taxAmt+=(r.taxAmt||0);groups[gk].net+=(r.net||0);groups[gk].cop+=(r.cop||0);groups[gk].pl+=(r.pl||0);groups[gk].actualPrice+=(r.actualPrice||0);groups[gk].sellingPrice+=(r.sellingPrice||0);groups[gk].estSellingPrice+=(r.estSellingPrice||0);groups[gk].rows.push(r);
     }
-    var gArr=Object.values(groups).sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
+    var gArr=Object.values(groups).sort(function(a,b){return b.count-a.count;});
     var h='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input class="srch" id="drillSearch" onkeyup="drillFilterTable()" placeholder="Search SKUs..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="drillDownloadCSV()" class="fbtn dl">Download CSV</button><button onclick="showAllPricingRows()" class="fbtn" style="background:#a855f7;color:#fff">ALL</button><span style="color:#aaa;margin-left:auto;font-size:12px">'+gArr.length+' UNIQUE SKUs FROM '+rows.length+' ROWS</span></div>';
     h+='<div class="tbox" style="margin:0"><h3>SKU SUMMARY<span>'+gArr.length+' SKUs</span></h3><div class="twrap"><table id="drillTable"><thead><tr>';
     h+='<th>COUNT</th><th>SKU ID</th><th>PLATFORM</th><th>COMPANY</th><th>MASTER SKU</th><th>CATEGORY</th><th>SUB CAT</th><th>PRODUCT</th><th>COLOR</th><th>QTY</th><th>REQUIRED</th><th>GROSS</th><th>DIFF</th><th>TAX AMT</th><th>NET</th><th>COP</th><th>P/L</th><th>ACTUAL PRICE</th><th>SELLING PRICE</th><th>EST PRICE</th>';
@@ -819,14 +824,18 @@ function expandSkuGroup(idx){
   if(!g)return;
   DM.level=4;
   document.getElementById('modalTitle').textContent=DM.label+' - SKU: '+g.skuId;
-  document.getElementById('modalNav').style.display='block';
-  document.getElementById('modalNav').innerHTML='<button class="fbtn" style="font-size:11px" onclick="drillToCompany(\''+DM.platform+'\')">◀ Back</button> <span style="color:#aaa;font-size:12px">'+DM.label+' → '+(DM.platform||'ALL')+' → '+(DM.company||'ALL')+' → '+g.skuId+'</span>';
+  document.getElementById('modalNav').style.display='flex';
+  document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread"><span>'+DM.label+'</span> &rarr; <span>'+(DM.platform||'ALL')+'</span> &rarr; <span>'+(DM.company||'ALL')+'</span> &rarr; <span>'+g.skuId+'</span></div>';
   showPricingRows(g.rows);
 }
 
 function showAllPricingRows(){
   var rows=window._allPricingRows;
   if(!rows)return;
+  DM.level=4;
+  document.getElementById('modalTitle').textContent=DM.label+' - All Rows';
+  document.getElementById('modalNav').style.display='flex';
+  document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread"><span>'+DM.label+'</span> &rarr; <span>'+(DM.platform||'ALL')+'</span> &rarr; <span>'+(DM.company||'ALL')+'</span> &rarr; <span>ALL ROWS</span></div>';
   showPricingRows(rows);
 }
 
