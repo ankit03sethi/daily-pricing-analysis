@@ -61,6 +61,27 @@ tr:hover td{background:#1f2b47}
 .tab-btn:hover{background:#1a4a80;border-color:#4fc3f7}
 .tab-btn.active{background:#39ff14;color:#1a1a2e;border-color:#39ff14}
 .full-w{grid-template-columns:1fr}
+/* Modal styles matching SKU Wise */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:100;overflow-y:auto;padding:20px}
+.modal-overlay.show{display:block}
+.modal-box{background:#111827;border:1px solid #444;border-radius:12px;max-width:1200px;margin:0 auto;padding:20px;position:relative;min-height:300px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #444}
+.modal-title{color:#39ff14;font-size:16px;font-weight:700}
+.modal-close{background:#dc2f02;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer}
+.modal-close:hover{background:#ff4444}
+.modal-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.modal-back{background:#4fc3f7;color:#1a1a2e;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.modal-back:hover{background:#39ff14}
+.modal-bread{color:#999;font-size:12px}
+.modal-bread span{color:#4fc3f7;font-weight:600}
+.drill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.drill-item{background:#0d1a30;border-radius:10px;padding:14px;text-align:center;border-left:4px solid #4fc3f7;cursor:pointer;transition:.2s}
+.drill-item:hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(79,195,247,.3);border-left-color:#39ff14}
+.drill-item .di-name{font-size:12px;color:#eee;font-weight:600;margin-bottom:4px}
+.drill-item .di-count{font-size:22px;font-weight:700;color:#39ff14}
+.drill-item.all-item{border-left-color:#e09f3e;background:#1a1a0d}
+.drill-item.all-item:hover{border-left-color:#39ff14}
+.drill-item.all-item .di-name{color:#e09f3e}
 @media(max-width:768px){.chs{grid-template-columns:1fr}.cards{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}}
 </style>
 </head>
@@ -79,18 +100,20 @@ tr:hover td{background:#1f2b47}
 
 <!-- PRICING OVERVIEW -->
 <div class="section-title" style="color:#ff6b6b">PRICING OVERVIEW</div>
-<div class="cards" id="pricingCards" style="display:flex;gap:16px;margin-bottom:12px"></div>
+<div class="cards" id="pricingCards"></div>
 
-<!-- Pricing Drill-Down Modal -->
-<div id="pricingModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;overflow-y:auto">
-<div style="max-width:1200px;margin:20px auto;background:#0f1a2e;border-radius:12px;padding:20px;border:1px solid #39ff14">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div><h3 id="pmTitle" style="color:#4fc3f7;margin:0"></h3><div id="pmBreadcrumb" style="color:#aaa;font-size:12px;margin-top:4px"></div></div>
-    <button onclick="closePricingModal()" style="background:#dc2f02;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700">X CLOSE</button>
+<!-- Drill-Down Modal (shared by all cards) -->
+<div class="modal-overlay" id="modalOverlay">
+<div class="modal-box">
+  <div class="modal-header">
+    <div class="modal-title" id="modalTitle">Drill Down</div>
+    <button class="modal-close" onclick="closeModal()">X CLOSE</button>
   </div>
-  <div id="pmBackBtn" style="display:none;margin-bottom:12px"><button onclick="pricingGoBack()" style="background:#1a1a2e;color:#39ff14;border:1px solid #39ff14;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600">◀ Back</button></div>
-  <div id="pmCards" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px"></div>
-  <div id="pmTable" style="display:none"></div>
+  <div class="modal-nav" id="modalNav" style="display:none">
+    <button class="modal-back" onclick="modalGoBack()">&#9664; Back</button>
+    <div class="modal-bread" id="modalBread"></div>
+  </div>
+  <div id="modalContent"></div>
 </div>
 </div>
 
@@ -390,20 +413,23 @@ function renderAll(){
 function renderSummary(){
   var s=FILTERED_DATA.summary||{};
   var html='';
-  html+=card('Total Orders',fmt(s.totalOrders),'b');
-  html+=card('Total Quantity',fmt(s.totalQty),'p');
-  html+=card('Gross Revenue',fmtCur(s.grossReceived),'g');
-  html+=card('Net Received',fmtCur(s.netReceived),'teal');
-  html+=card('Total Tax',fmtCur(s.taxAmount),'o');
-  html+=card('Total COP',fmtCur(s.cop),'pk');
+  html+=card('Total Orders',fmt(s.totalOrders),'b','orders');
+  html+=card('Total Quantity',fmt(s.totalQty),'p','qty');
+  html+=card('Gross Revenue',fmtCur(s.grossReceived),'g','gross');
+  html+=card('Net Received',fmtCur(s.netReceived),'teal','net');
+  html+=card('Total Tax',fmtCur(s.taxAmount),'o','tax');
+  html+=card('Total COP',fmtCur(s.cop),'pk','cop');
   html+=cardPL('Total P/L',s.pl);
-  html+=card('Avg Order Value',fmtCur(s.avgOrderValue),'b');
-  html+=card('Margin',fmtPct(s.margin),s.margin>=0?'g':'r');
+  html+=card('Avg Order Value',fmtCur(s.avgOrderValue),'b','');
+  html+=card('Margin',fmtPct(s.margin),s.margin>=0?'g':'r','');
   document.getElementById('summaryCards').innerHTML=html;
 }
 
-function card(label,val,cls){return '<div class="cd '+cls+'"><div class="lb">'+label+'</div><div class="vl">'+val+'</div></div>';}
-function cardPL(label,val){var cls=val>=0?'g':'r';var prefix=val>=0?'+':'';return '<div class="cd '+cls+'"><div class="lb">'+label+'</div><div class="vl '+(val>=0?'profit':'loss')+'">'+prefix+fmtCur(val)+'</div></div>';}
+function card(label,val,cls,metric){
+  var onclick=metric?(' onclick="openModal(\''+metric+'\',\''+label+'\')"'):'';
+  return '<div class="cd '+cls+'"'+onclick+'><div class="lb">'+label+'</div><div class="vl">'+val+'</div></div>';
+}
+function cardPL(label,val){var cls=val>=0?'g':'r';var prefix=val>=0?'+':'';return '<div class="cd '+cls+'" onclick="openModal(\'pl\',\'Total P/L\')"><div class="lb">'+label+'</div><div class="vl '+(val>=0?'profit':'loss')+'">'+prefix+fmtCur(val)+'</div></div>';}
 
 // ===== TAB SWITCHING =====
 function switchTab(tab,btn){
@@ -602,108 +628,197 @@ function renderPricing(){
   var p=FILTERED_DATA.pricing;
   if(!p){document.getElementById('pricingCards').innerHTML='';return;}
   var html='';
-  html+='<div class="card" style="border-left:4px solid #dc2f02;cursor:pointer;min-width:180px" onclick="openPricingModal(\'short\')">';
-  html+='<div class="card-label" style="color:#dc2f02">SHORT</div>';
-  html+='<div class="card-val" style="color:#fff">'+fmt(p.short.count)+'</div>';
-  html+='<div style="color:#dc2f02;font-size:11px">'+fmtCur(Math.abs(p.short.totalDiff))+' under</div></div>';
-  html+='<div class="card" style="border-left:4px solid #39ff14;cursor:pointer;min-width:180px" onclick="openPricingModal(\'excess\')">';
-  html+='<div class="card-label" style="color:#39ff14">EXCESS</div>';
-  html+='<div class="card-val" style="color:#fff">'+fmt(p.excess.count)+'</div>';
-  html+='<div style="color:#39ff14;font-size:11px">'+fmtCur(p.excess.totalDiff)+' over</div></div>';
+  html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+' under</div></div>';
+  html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+' over</div></div>';
   document.getElementById('pricingCards').innerHTML=html;
 }
 
-function openPricingModal(type){
-  PM_STATE={type:type,level:'platform',platform:'',company:''};
-  document.getElementById('pricingModal').style.display='block';
-  renderPricingLevel();
+// ===== UNIVERSAL DRILL-DOWN MODAL (matches SKU Wise style) =====
+var DM={type:'',label:'',level:0,platform:'',company:'',data:null,companies:null};
+var DM_COLORS=['#39ff14','#4fc3f7','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee'];
+
+function openModal(type,label){
+  DM={type:type,label:label,level:1,platform:'',company:'',data:null,companies:null};
+  if(type==='short'||type==='excess'){
+    DM.data=FILTERED_DATA.pricing?FILTERED_DATA.pricing[type]:null;
+    if(!DM.data)return;
+  } else {
+    DM.data=FILTERED_DATA;
+  }
+  document.getElementById('modalTitle').textContent=label+' - Platform Breakdown';
+  document.getElementById('modalNav').style.display='none';
+  renderDrillPlatforms();
+  document.getElementById('modalOverlay').className='modal-overlay show';
+  document.body.style.overflow='hidden';
 }
-function closePricingModal(){document.getElementById('pricingModal').style.display='none';}
-function pricingGoBack(){
-  if(PM_STATE.level==='table'){PM_STATE.level='company';PM_STATE.company='';renderPricingLevel();}
-  else if(PM_STATE.level==='company'){PM_STATE.level='platform';PM_STATE.platform='';renderPricingLevel();}
+function closeModal(){
+  document.getElementById('modalOverlay').className='modal-overlay';
+  document.body.style.overflow='';
+}
+function modalGoBack(){
+  if(DM.level<=1){closeModal();return;}
+  if(DM.level===3){
+    DM.level=2;DM.company='';
+    document.getElementById('modalTitle').textContent=DM.label+' - '+(DM.platform||'ALL Platforms')+' - Companies';
+    document.getElementById('modalNav').style.display='flex';
+    document.getElementById('modalBread').innerHTML='<span>'+DM.label+'</span> &rarr; <span>'+(DM.platform||'ALL')+'</span>';
+    renderDrillCompanies();return;
+  }
+  if(DM.level===2){
+    DM.level=1;DM.platform='';DM.company='';
+    document.getElementById('modalTitle').textContent=DM.label+' - Platform Breakdown';
+    document.getElementById('modalNav').style.display='none';
+    renderDrillPlatforms();return;
+  }
 }
 
-function renderPricingLevel(){
-  var p=FILTERED_DATA.pricing[PM_STATE.type];
-  var title=(PM_STATE.type==='short'?'SHORT':'EXCESS')+' - ';
-  var crumb=PM_STATE.type.toUpperCase();
-  var color=PM_STATE.type==='short'?'#dc2f02':'#39ff14';
-  document.getElementById('pmTable').style.display='none';
-  document.getElementById('pmCards').style.display='flex';
-  document.getElementById('pmBackBtn').style.display='none';
-
-  if(PM_STATE.level==='platform'){
-    title+='Platform Breakdown';
-    var html='<div class="card" style="border-left:4px solid gold;cursor:pointer;min-width:140px;background:#1a2744" onclick="pmSelectPlatform(\'ALL\')"><div style="color:gold;font-size:11px">ALL</div><div style="color:#fff;font-size:24px;font-weight:700">'+fmt(p.count)+'</div></div>';
+function renderDrillPlatforms(){
+  var bp=FILTERED_DATA.byPlatform||{};
+  var isPricing=(DM.type==='short'||DM.type==='excess');
+  var h='<div class="drill-grid">';
+  if(isPricing){
+    var p=DM.data;
+    h+='<div class="drill-item all-item" onclick="drillToPlatform(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmt(p.count)+'</div></div>';
     var plats=Object.keys(p.byPlatform).sort(function(a,b){return p.byPlatform[b].count-p.byPlatform[a].count;});
     for(var i=0;i<plats.length;i++){
-      var pp=plats[i],pd=p.byPlatform[pp];
-      html+='<div class="card" style="border-left:4px solid '+color+';cursor:pointer;min-width:140px" onclick="pmSelectPlatform(\''+pp.replace(/'/g,"\\'")+'\')">';
-      html+='<div style="color:#aaa;font-size:11px">'+pp+'</div><div style="color:#fff;font-size:24px;font-weight:700">'+fmt(pd.count)+'</div></div>';
+      h+='<div class="drill-item" style="border-left-color:'+DM_COLORS[i%DM_COLORS.length]+'" onclick="drillToPlatform(\''+plats[i].replace(/'/g,"\\'")+'\')">';
+      h+='<div class="di-name">'+plats[i]+'</div><div class="di-count">'+fmt(p.byPlatform[plats[i]].count)+'</div></div>';
     }
-    document.getElementById('pmCards').innerHTML=html;
-  } else if(PM_STATE.level==='company'){
-    title+='Companies';
-    crumb+=(' → '+PM_STATE.platform);
-    document.getElementById('pmBackBtn').style.display='block';
-    var companies;
-    if(PM_STATE.platform==='ALL'){
-      companies={};
-      for(var pp in p.byPlatform){for(var cc in p.byPlatform[pp].byCompany){if(!companies[cc])companies[cc]={count:0,diff:0,rows:[]};companies[cc].count+=p.byPlatform[pp].byCompany[cc].count;companies[cc].diff+=p.byPlatform[pp].byCompany[cc].diff;companies[cc].rows=companies[cc].rows.concat(p.byPlatform[pp].byCompany[cc].rows);}}
-    } else {
-      companies=p.byPlatform[PM_STATE.platform]?p.byPlatform[PM_STATE.platform].byCompany:{};
+  } else {
+    var totalVal=0;for(var k in bp)totalVal+=getMetricVal(bp[k],DM.type);
+    h+='<div class="drill-item all-item" onclick="drillToPlatform(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmtMetric(totalVal,DM.type)+'</div></div>';
+    var sorted=Object.keys(bp).sort(function(a,b){return getMetricVal(bp[b],DM.type)-getMetricVal(bp[a],DM.type);});
+    for(var i=0;i<sorted.length;i++){
+      var val=getMetricVal(bp[sorted[i]],DM.type);
+      h+='<div class="drill-item" style="border-left-color:'+DM_COLORS[i%DM_COLORS.length]+'" onclick="drillToPlatform(\''+sorted[i].replace(/'/g,"\\'")+'\')">';
+      h+='<div class="di-name">'+sorted[i]+'</div><div class="di-count">'+fmtMetric(val,DM.type)+'</div></div>';
     }
-    var totalCount=0;for(var cc in companies)totalCount+=companies[cc].count;
-    var html='<div class="card" style="border-left:4px solid gold;cursor:pointer;min-width:140px;background:#1a2744" onclick="pmSelectCompany(\'ALL\')"><div style="color:gold;font-size:11px">ALL</div><div style="color:#fff;font-size:24px;font-weight:700">'+fmt(totalCount)+'</div></div>';
-    var comps=Object.keys(companies).sort(function(a,b){return companies[b].count-companies[a].count;});
-    for(var i=0;i<comps.length;i++){
-      var cc=comps[i],cd=companies[cc];
-      html+='<div class="card" style="border-left:4px solid '+color+';cursor:pointer;min-width:140px" onclick="pmSelectCompany(\''+cc.replace(/'/g,"\\'")+'\')">';
-      html+='<div style="color:#aaa;font-size:11px">'+cc+'</div><div style="color:#fff;font-size:24px;font-weight:700">'+fmt(cd.count)+'</div></div>';
-    }
-    document.getElementById('pmCards').innerHTML=html;
-    PM_STATE._companies=companies;
-  } else if(PM_STATE.level==='table'){
-    title+='Details';
-    crumb+=(' → '+PM_STATE.platform+' → '+PM_STATE.company);
-    document.getElementById('pmBackBtn').style.display='block';
-    document.getElementById('pmCards').style.display='none';
-    document.getElementById('pmTable').style.display='block';
-    var rows;
-    if(PM_STATE.company==='ALL'){rows=[];for(var cc in PM_STATE._companies)rows=rows.concat(PM_STATE._companies[cc].rows);}
-    else{rows=PM_STATE._companies[PM_STATE.company]?PM_STATE._companies[PM_STATE.company].rows:[];}
-    rows.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
-    var html='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input id="pmSearch" onkeyup="pmFilterTable()" placeholder="Search..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="pmDownloadCSV()" style="background:#39ff14;color:#000;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700">Download CSV</button><span style="color:#aaa;margin-left:auto;font-size:12px">SHOWING '+rows.length+' ROWS</span></div>';
-    html+='<div style="overflow-x:auto"><table id="pmDataTable" style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#0a1628">';
-    html+='<th style="padding:8px;color:#4fc3f7;text-align:left">ORDER ID</th><th style="padding:8px;color:#4fc3f7">SKU</th><th style="padding:8px;color:#4fc3f7">CATEGORY</th><th style="padding:8px;color:#4fc3f7">QTY</th><th style="padding:8px;color:#4fc3f7">REQUIRED</th><th style="padding:8px;color:#4fc3f7">GROSS</th><th style="padding:8px;color:#4fc3f7">DIFF</th><th style="padding:8px;color:#4fc3f7">DATE</th>';
-    html+='</tr></thead><tbody>';
-    for(var i=0;i<rows.length;i++){
-      var rr=rows[i],dc=rr.diff<0?'#dc2f02':'#39ff14';
-      html+='<tr style="border-bottom:1px solid #1a2744"><td style="padding:6px 8px;color:#ccc">'+rr.unique+'</td><td style="padding:6px 8px;color:#fff">'+rr.sku+'</td><td style="padding:6px 8px;color:#aaa">'+rr.category+'</td><td style="padding:6px 8px;color:#fff;text-align:center">'+rr.qty+'</td><td style="padding:6px 8px;color:#4fc3f7;text-align:right">'+fmtCur(rr.required)+'</td><td style="padding:6px 8px;color:#fff;text-align:right">'+fmtCur(rr.gross)+'</td><td style="padding:6px 8px;color:'+dc+';text-align:right">'+fmtCur(rr.diff)+'</td><td style="padding:6px 8px;color:#aaa">'+rr.date+'</td></tr>';
-    }
-    html+='</tbody></table></div>';
-    document.getElementById('pmTable').innerHTML=html;
   }
-  document.getElementById('pmTitle').textContent=title;
-  document.getElementById('pmBreadcrumb').textContent=crumb;
+  h+='</div>';
+  document.getElementById('modalContent').innerHTML=h;
 }
 
-function pmSelectPlatform(p){PM_STATE.platform=p;PM_STATE.level='company';renderPricingLevel();}
-function pmSelectCompany(c){PM_STATE.company=c;PM_STATE.level='table';renderPricingLevel();}
+function drillToPlatform(plat){
+  DM.level=2;DM.platform=plat||'ALL';
+  document.getElementById('modalTitle').textContent=DM.label+' - '+(DM.platform)+' - Companies';
+  document.getElementById('modalNav').style.display='flex';
+  document.getElementById('modalBread').innerHTML='<span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span>';
+  renderDrillCompanies();
+}
 
-function pmFilterTable(){
-  var q=document.getElementById('pmSearch').value.toLowerCase();
-  var rows=document.querySelectorAll('#pmDataTable tbody tr');
+function renderDrillCompanies(){
+  var isPricing=(DM.type==='short'||DM.type==='excess');
+  var h='<div class="drill-grid">';
+  if(isPricing){
+    var p=DM.data;
+    var companies={};
+    if(DM.platform==='ALL'){
+      for(var pp in p.byPlatform){for(var cc in p.byPlatform[pp].byCompany){if(!companies[cc])companies[cc]={count:0,diff:0,rows:[]};companies[cc].count+=p.byPlatform[pp].byCompany[cc].count;companies[cc].diff+=p.byPlatform[pp].byCompany[cc].diff;companies[cc].rows=companies[cc].rows.concat(p.byPlatform[pp].byCompany[cc].rows);}}
+    } else {
+      companies=p.byPlatform[DM.platform]?p.byPlatform[DM.platform].byCompany:{};
+    }
+    var totalCount=0;for(var cc in companies)totalCount+=companies[cc].count;
+    h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmt(totalCount)+'</div></div>';
+    var comps=Object.keys(companies).sort(function(a,b){return companies[b].count-companies[a].count;});
+    for(var i=0;i<comps.length;i++){
+      h+='<div class="drill-item" style="border-left-color:'+DM_COLORS[i%DM_COLORS.length]+'" onclick="drillToCompany(\''+comps[i].replace(/'/g,"\\'")+'\')">';
+      h+='<div class="di-name">'+comps[i]+'</div><div class="di-count">'+fmt(companies[comps[i]].count)+'</div></div>';
+    }
+    DM.companies=companies;
+  } else {
+    var bc=FILTERED_DATA.byCompany||{};
+    var platFilter=(DM.platform!=='ALL')?DM.platform:'';
+    var compMap={};
+    // For financial metrics, byCompany has all companies but we need to filter by platform if needed
+    // Since byCompany doesn't have per-platform breakdown, we show all companies when platform=ALL
+    // and aggregate from byPlatform data for specific platforms (if available)
+    if(!platFilter){
+      for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
+    } else {
+      // Use daily data to re-aggregate by company for this platform
+      // For simplicity, show byCompany as-is (platform filter is informational)
+      for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
+    }
+    var totalVal=0;for(var k in compMap)totalVal+=compMap[k];
+    h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmtMetric(totalVal,DM.type)+'</div></div>';
+    var sorted=Object.keys(compMap).sort(function(a,b){return compMap[b]-compMap[a];});
+    for(var i=0;i<sorted.length;i++){
+      h+='<div class="drill-item" style="border-left-color:'+DM_COLORS[i%DM_COLORS.length]+'" onclick="drillToCompany(\''+sorted[i].replace(/'/g,"\\'")+'\')">';
+      h+='<div class="di-name">'+sorted[i]+'</div><div class="di-count">'+fmtMetric(compMap[sorted[i]],DM.type)+'</div></div>';
+    }
+    DM.companies=compMap;
+  }
+  h+='</div>';
+  document.getElementById('modalContent').innerHTML=h;
+}
+
+function drillToCompany(comp){
+  DM.level=3;DM.company=comp||'ALL';
+  document.getElementById('modalTitle').textContent=DM.label+' - Details';
+  document.getElementById('modalNav').style.display='flex';
+  document.getElementById('modalBread').innerHTML='<span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span> &rarr; <span>'+DM.company+'</span>';
+  renderDrillTable();
+}
+
+function renderDrillTable(){
+  var isPricing=(DM.type==='short'||DM.type==='excess');
+  if(isPricing){
+    var rows;
+    if(DM.company==='ALL'){rows=[];for(var cc in DM.companies)rows=rows.concat(DM.companies[cc].rows);}
+    else{rows=DM.companies[DM.company]?DM.companies[DM.company].rows:[];}
+    rows.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
+    var h='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input class="srch" id="drillSearch" onkeyup="drillFilterTable()" placeholder="Search SKUs..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="drillDownloadCSV()" class="fbtn dl">Download CSV</button><span style="color:#aaa;margin-left:auto;font-size:12px">SHOWING '+rows.length+' ROWS</span></div>';
+    h+='<div class="tbox" style="margin:0"><h3>SKU DETAILS<span>SHOWING 1-'+rows.length+' OF '+rows.length+'</span></h3><div class="twrap"><table id="drillTable"><thead><tr>';
+    h+='<th>ORDER ID</th><th>SKU</th><th>CATEGORY</th><th>QTY</th><th>REQUIRED</th><th>GROSS</th><th>DIFF</th><th>DATE</th>';
+    h+='</tr></thead><tbody>';
+    for(var i=0;i<rows.length;i++){
+      var rr=rows[i],dc=rr.diff<0?'loss':'profit';
+      h+='<tr><td style="text-align:left">'+rr.unique+'</td><td>'+rr.sku+'</td><td>'+rr.category+'</td><td>'+rr.qty+'</td><td>'+fmt(rr.required)+'</td><td>'+fmt(rr.gross)+'</td><td class="'+dc+'">'+fmt(rr.diff)+'</td><td>'+rr.date+'</td></tr>';
+    }
+    h+='</tbody></table></div></div>';
+    document.getElementById('modalContent').innerHTML=h;
+  } else {
+    // For financial cards - show a summary message (no row-level data available for non-pricing cards)
+    var h='<div style="padding:20px;text-align:center;color:#aaa;font-size:14px">Detailed row-level data is available for SHORT and EXCESS pricing cards.<br>Financial Overview cards show aggregated Platform &rarr; Company breakdown.</div>';
+    document.getElementById('modalContent').innerHTML=h;
+  }
+}
+
+function drillFilterTable(){
+  var q=document.getElementById('drillSearch').value.toLowerCase();
+  var rows=document.querySelectorAll('#drillTable tbody tr');
   for(var i=0;i<rows.length;i++){rows[i].style.display=rows[i].textContent.toLowerCase().indexOf(q)>=0?'':'none';}
 }
 
-function pmDownloadCSV(){
-  var rows=document.querySelectorAll('#pmDataTable tbody tr:not([style*="display: none"])');
+function drillDownloadCSV(){
+  var rows=document.querySelectorAll('#drillTable tbody tr:not([style*="display: none"])');
   var csv='ORDER ID,SKU,CATEGORY,QTY,REQUIRED,GROSS,DIFF,DATE\n';
   for(var i=0;i<rows.length;i++){var cells=rows[i].querySelectorAll('td');var r=[];for(var j=0;j<cells.length;j++)r.push('"'+cells[j].textContent.replace(/"/g,'""')+'"');csv+=r.join(',')+'\n';}
-  var blob=new Blob([csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pricing_'+PM_STATE.type+'_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
+  var blob=new Blob([csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pricing_'+DM.type+'_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
 }
+
+// Helper: get metric value from platform/company data by card type
+function getMetricVal(obj,type){
+  if(!obj)return 0;
+  switch(type){
+    case 'orders':return obj.orders||0;
+    case 'qty':return obj.qty||0;
+    case 'gross':return obj.gross||0;
+    case 'net':return obj.net||0;
+    case 'tax':return obj.tax||0;
+    case 'cop':return obj.cop||0;
+    case 'pl':return obj.pl||0;
+    default:return 0;
+  }
+}
+function fmtMetric(val,type){
+  if(type==='orders'||type==='qty')return fmt(val);
+  return fmt(val);
+}
+
+// Legacy aliases for pricing modal
+function openPricingModal(type){openModal(type,type==='short'?'SHORT':'EXCESS');}
+function closePricingModal(){closeModal();}
 
 // ===== INIT =====
 window.onload=loadData;
