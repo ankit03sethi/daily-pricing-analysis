@@ -77,6 +77,23 @@ tr:hover td{background:#1f2b47}
 <div class="section-title">FINANCIAL OVERVIEW</div>
 <div class="cards" id="summaryCards"></div>
 
+<!-- PRICING OVERVIEW -->
+<div class="section-title" style="color:#ff6b6b">PRICING OVERVIEW</div>
+<div class="cards" id="pricingCards" style="display:flex;gap:16px;margin-bottom:12px"></div>
+
+<!-- Pricing Drill-Down Modal -->
+<div id="pricingModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;overflow-y:auto">
+<div style="max-width:1200px;margin:20px auto;background:#0f1a2e;border-radius:12px;padding:20px;border:1px solid #39ff14">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div><h3 id="pmTitle" style="color:#4fc3f7;margin:0"></h3><div id="pmBreadcrumb" style="color:#aaa;font-size:12px;margin-top:4px"></div></div>
+    <button onclick="closePricingModal()" style="background:#dc2f02;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700">X CLOSE</button>
+  </div>
+  <div id="pmBackBtn" style="display:none;margin-bottom:12px"><button onclick="pricingGoBack()" style="background:#1a1a2e;color:#39ff14;border:1px solid #39ff14;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600">◀ Back</button></div>
+  <div id="pmCards" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px"></div>
+  <div id="pmTable" style="display:none"></div>
+</div>
+</div>
+
 <!-- FILTERS -->
 <div class="fbox">
 <h3>Filters</h3>
@@ -313,6 +330,7 @@ function clearFilters(){
 // ===== RENDER ALL =====
 function renderAll(){
   renderSummary();
+  renderPricing();
   renderOverview();
   renderPlatform();
   renderCompany();
@@ -529,6 +547,116 @@ function downloadCSV(){
   a.href=URL.createObjectURL(blob);
   a.download='financial_data_'+new Date().toISOString().split('T')[0]+'.csv';
   a.click();
+}
+
+// ===== PRICING OVERVIEW =====
+var PM_STATE={type:'',level:'',platform:'',company:''};
+
+function renderPricing(){
+  var p=FILTERED_DATA.pricing;
+  if(!p){document.getElementById('pricingCards').innerHTML='';return;}
+  var html='';
+  html+='<div class="card" style="border-left:4px solid #dc2f02;cursor:pointer;min-width:180px" onclick="openPricingModal(\'short\')">';
+  html+='<div class="card-label" style="color:#dc2f02">SHORT</div>';
+  html+='<div class="card-val" style="color:#fff">'+fmt(p.short.count)+'</div>';
+  html+='<div style="color:#dc2f02;font-size:11px">'+fmtCur(Math.abs(p.short.totalDiff))+' under</div></div>';
+  html+='<div class="card" style="border-left:4px solid #39ff14;cursor:pointer;min-width:180px" onclick="openPricingModal(\'excess\')">';
+  html+='<div class="card-label" style="color:#39ff14">EXCESS</div>';
+  html+='<div class="card-val" style="color:#fff">'+fmt(p.excess.count)+'</div>';
+  html+='<div style="color:#39ff14;font-size:11px">'+fmtCur(p.excess.totalDiff)+' over</div></div>';
+  document.getElementById('pricingCards').innerHTML=html;
+}
+
+function openPricingModal(type){
+  PM_STATE={type:type,level:'platform',platform:'',company:''};
+  document.getElementById('pricingModal').style.display='block';
+  renderPricingLevel();
+}
+function closePricingModal(){document.getElementById('pricingModal').style.display='none';}
+function pricingGoBack(){
+  if(PM_STATE.level==='table'){PM_STATE.level='company';PM_STATE.company='';renderPricingLevel();}
+  else if(PM_STATE.level==='company'){PM_STATE.level='platform';PM_STATE.platform='';renderPricingLevel();}
+}
+
+function renderPricingLevel(){
+  var p=FILTERED_DATA.pricing[PM_STATE.type];
+  var title=(PM_STATE.type==='short'?'SHORT':'EXCESS')+' - ';
+  var crumb=PM_STATE.type.toUpperCase();
+  var color=PM_STATE.type==='short'?'#dc2f02':'#39ff14';
+  document.getElementById('pmTable').style.display='none';
+  document.getElementById('pmCards').style.display='flex';
+  document.getElementById('pmBackBtn').style.display='none';
+
+  if(PM_STATE.level==='platform'){
+    title+='Platform Breakdown';
+    var html='<div class="card" style="border-left:4px solid gold;cursor:pointer;min-width:140px;background:#1a2744" onclick="pmSelectPlatform(\'ALL\')"><div style="color:gold;font-size:11px">ALL</div><div style="color:#fff;font-size:24px;font-weight:700">'+fmt(p.count)+'</div></div>';
+    var plats=Object.keys(p.byPlatform).sort(function(a,b){return p.byPlatform[b].count-p.byPlatform[a].count;});
+    for(var i=0;i<plats.length;i++){
+      var pp=plats[i],pd=p.byPlatform[pp];
+      html+='<div class="card" style="border-left:4px solid '+color+';cursor:pointer;min-width:140px" onclick="pmSelectPlatform(\''+pp.replace(/'/g,"\\'")+'\')">';
+      html+='<div style="color:#aaa;font-size:11px">'+pp+'</div><div style="color:#fff;font-size:24px;font-weight:700">'+fmt(pd.count)+'</div></div>';
+    }
+    document.getElementById('pmCards').innerHTML=html;
+  } else if(PM_STATE.level==='company'){
+    title+='Companies';
+    crumb+=(' → '+PM_STATE.platform);
+    document.getElementById('pmBackBtn').style.display='block';
+    var companies;
+    if(PM_STATE.platform==='ALL'){
+      companies={};
+      for(var pp in p.byPlatform){for(var cc in p.byPlatform[pp].byCompany){if(!companies[cc])companies[cc]={count:0,diff:0,rows:[]};companies[cc].count+=p.byPlatform[pp].byCompany[cc].count;companies[cc].diff+=p.byPlatform[pp].byCompany[cc].diff;companies[cc].rows=companies[cc].rows.concat(p.byPlatform[pp].byCompany[cc].rows);}}
+    } else {
+      companies=p.byPlatform[PM_STATE.platform]?p.byPlatform[PM_STATE.platform].byCompany:{};
+    }
+    var totalCount=0;for(var cc in companies)totalCount+=companies[cc].count;
+    var html='<div class="card" style="border-left:4px solid gold;cursor:pointer;min-width:140px;background:#1a2744" onclick="pmSelectCompany(\'ALL\')"><div style="color:gold;font-size:11px">ALL</div><div style="color:#fff;font-size:24px;font-weight:700">'+fmt(totalCount)+'</div></div>';
+    var comps=Object.keys(companies).sort(function(a,b){return companies[b].count-companies[a].count;});
+    for(var i=0;i<comps.length;i++){
+      var cc=comps[i],cd=companies[cc];
+      html+='<div class="card" style="border-left:4px solid '+color+';cursor:pointer;min-width:140px" onclick="pmSelectCompany(\''+cc.replace(/'/g,"\\'")+'\')">';
+      html+='<div style="color:#aaa;font-size:11px">'+cc+'</div><div style="color:#fff;font-size:24px;font-weight:700">'+fmt(cd.count)+'</div></div>';
+    }
+    document.getElementById('pmCards').innerHTML=html;
+    PM_STATE._companies=companies;
+  } else if(PM_STATE.level==='table'){
+    title+='Details';
+    crumb+=(' → '+PM_STATE.platform+' → '+PM_STATE.company);
+    document.getElementById('pmBackBtn').style.display='block';
+    document.getElementById('pmCards').style.display='none';
+    document.getElementById('pmTable').style.display='block';
+    var rows;
+    if(PM_STATE.company==='ALL'){rows=[];for(var cc in PM_STATE._companies)rows=rows.concat(PM_STATE._companies[cc].rows);}
+    else{rows=PM_STATE._companies[PM_STATE.company]?PM_STATE._companies[PM_STATE.company].rows:[];}
+    rows.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
+    var html='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input id="pmSearch" onkeyup="pmFilterTable()" placeholder="Search..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="pmDownloadCSV()" style="background:#39ff14;color:#000;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700">Download CSV</button><span style="color:#aaa;margin-left:auto;font-size:12px">SHOWING '+rows.length+' ROWS</span></div>';
+    html+='<div style="overflow-x:auto"><table id="pmDataTable" style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#0a1628">';
+    html+='<th style="padding:8px;color:#4fc3f7;text-align:left">ORDER ID</th><th style="padding:8px;color:#4fc3f7">SKU</th><th style="padding:8px;color:#4fc3f7">CATEGORY</th><th style="padding:8px;color:#4fc3f7">QTY</th><th style="padding:8px;color:#4fc3f7">REQUIRED</th><th style="padding:8px;color:#4fc3f7">GROSS</th><th style="padding:8px;color:#4fc3f7">DIFF</th><th style="padding:8px;color:#4fc3f7">DATE</th>';
+    html+='</tr></thead><tbody>';
+    for(var i=0;i<rows.length;i++){
+      var rr=rows[i],dc=rr.diff<0?'#dc2f02':'#39ff14';
+      html+='<tr style="border-bottom:1px solid #1a2744"><td style="padding:6px 8px;color:#ccc">'+rr.unique+'</td><td style="padding:6px 8px;color:#fff">'+rr.sku+'</td><td style="padding:6px 8px;color:#aaa">'+rr.category+'</td><td style="padding:6px 8px;color:#fff;text-align:center">'+rr.qty+'</td><td style="padding:6px 8px;color:#4fc3f7;text-align:right">'+fmtCur(rr.required)+'</td><td style="padding:6px 8px;color:#fff;text-align:right">'+fmtCur(rr.gross)+'</td><td style="padding:6px 8px;color:'+dc+';text-align:right">'+fmtCur(rr.diff)+'</td><td style="padding:6px 8px;color:#aaa">'+rr.date+'</td></tr>';
+    }
+    html+='</tbody></table></div>';
+    document.getElementById('pmTable').innerHTML=html;
+  }
+  document.getElementById('pmTitle').textContent=title;
+  document.getElementById('pmBreadcrumb').textContent=crumb;
+}
+
+function pmSelectPlatform(p){PM_STATE.platform=p;PM_STATE.level='company';renderPricingLevel();}
+function pmSelectCompany(c){PM_STATE.company=c;PM_STATE.level='table';renderPricingLevel();}
+
+function pmFilterTable(){
+  var q=document.getElementById('pmSearch').value.toLowerCase();
+  var rows=document.querySelectorAll('#pmDataTable tbody tr');
+  for(var i=0;i<rows.length;i++){rows[i].style.display=rows[i].textContent.toLowerCase().indexOf(q)>=0?'':'none';}
+}
+
+function pmDownloadCSV(){
+  var rows=document.querySelectorAll('#pmDataTable tbody tr:not([style*="display: none"])');
+  var csv='ORDER ID,SKU,CATEGORY,QTY,REQUIRED,GROSS,DIFF,DATE\n';
+  for(var i=0;i<rows.length;i++){var cells=rows[i].querySelectorAll('td');var r=[];for(var j=0;j<cells.length;j++)r.push('"'+cells[j].textContent.replace(/"/g,'""')+'"');csv+=r.join(',')+'\n';}
+  var blob=new Blob([csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pricing_'+PM_STATE.type+'_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
 }
 
 // ===== INIT =====

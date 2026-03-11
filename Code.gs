@@ -1629,7 +1629,7 @@ function doGet(e) {
     var filterStartStr = filterDate ? Utilities.formatDate(filterDate, tz, 'yyyy-MM-dd') : '';
     var filterEndStr = filterDateEnd ? Utilities.formatDate(filterDateEnd, tz, 'yyyy-MM-dd') : '';
     // Only fetch the 14 columns we need using fast Sheets API batchGet
-    var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB'];
+    var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','V2:V','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB'];
     var ranges = [];
     for (var i = 0; i < colRanges.length; i++) ranges.push("'" + tab + "'!" + colRanges[i]);
     var res = Sheets.Spreadsheets.Values.batchGet(ssId, {ranges: ranges, valueRenderOption: 'UNFORMATTED_VALUE'});
@@ -1642,20 +1642,23 @@ function doGet(e) {
     // Build column arrays for fast access
     var cols = [];
     for (var c = 0; c < vr.length; c++) { cols.push(vr[c].values || []); }
-    // col indices: 0=unique,1=year,2=month,3=date,4=platform,5=company,6=qty,7=masterSku,8=category,9=gross,10=taxAmt,11=net,12=cop,13=pl
+    // col indices: 0=unique,1=year,2=month,3=date,4=platform,5=company,6=qty,7=masterSku,8=category,9=required,10=gross,11=taxAmt,12=net,13=cop,14=pl
     var summary = {totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0};
     var byPlatform={},byCompany={},byMonthMap={},byCategory={},bySku={},dailyMap={};
     // Track unique order IDs to avoid double-counting multi-item orders
     var seenOrders={},seenByPlatform={},seenByCompany={},seenByMonth={},seenByCategory={},seenByDaily={};
+    // Pricing overview: short (W<V) and excess (W>V) with drill-down data
+    var pricing={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}}};
     for (var r = 0; r < maxRows; r++) {
       var unique = r < cols[0].length && cols[0][r].length > 0 ? cols[0][r][0] : '';
       if (!unique || String(unique).trim() === '') continue;
       var qty = _toNum(r < cols[6].length && cols[6][r].length > 0 ? cols[6][r][0] : 0);
-      var gross = _toNum(r < cols[9].length && cols[9][r].length > 0 ? cols[9][r][0] : 0);
-      var net = _toNum(r < cols[11].length && cols[11][r].length > 0 ? cols[11][r][0] : 0);
-      var tax = _toNum(r < cols[10].length && cols[10][r].length > 0 ? cols[10][r][0] : 0);
-      var cop = _toNum(r < cols[12].length && cols[12][r].length > 0 ? cols[12][r][0] : 0);
-      var pl = _toNum(r < cols[13].length && cols[13][r].length > 0 ? cols[13][r][0] : 0);
+      var required = _toNum(r < cols[9].length && cols[9][r].length > 0 ? cols[9][r][0] : 0);
+      var gross = _toNum(r < cols[10].length && cols[10][r].length > 0 ? cols[10][r][0] : 0);
+      var tax = _toNum(r < cols[11].length && cols[11][r].length > 0 ? cols[11][r][0] : 0);
+      var net = _toNum(r < cols[12].length && cols[12][r].length > 0 ? cols[12][r][0] : 0);
+      var cop = _toNum(r < cols[13].length && cols[13][r].length > 0 ? cols[13][r][0] : 0);
+      var pl = _toNum(r < cols[14].length && cols[14][r].length > 0 ? cols[14][r][0] : 0);
       var platform = String(r < cols[4].length && cols[4][r].length > 0 ? cols[4][r][0] : '').trim() || 'Unknown';
       var company = String(r < cols[5].length && cols[5][r].length > 0 ? cols[5][r][0] : '').trim() || 'Unknown';
       var category = String(r < cols[8].length && cols[8][r].length > 0 ? cols[8][r][0] : '').trim() || 'Unknown';
@@ -1700,6 +1703,20 @@ function doGet(e) {
       if (dateStr) { if (!dailyMap[dateStr]) { dailyMap[dateStr]={date:dateStr,orders:0,qty:0,gross:0,net:0,cop:0,pl:0}; seenByDaily[dateStr]={}; } if (!seenByDaily[dateStr][unique]) { seenByDaily[dateStr][unique]=true; dailyMap[dateStr].orders++; } dailyMap[dateStr].qty+=qty; dailyMap[dateStr].gross+=gross; dailyMap[dateStr].net+=net; dailyMap[dateStr].cop+=cop; dailyMap[dateStr].pl+=pl; }
       if (!bySku[sku]) bySku[sku]={sku:sku,platform:platform,orders:0,qty:0,gross:0,net:0,cop:0,pl:0};
       bySku[sku].orders++; bySku[sku].qty+=qty; bySku[sku].gross+=gross; bySku[sku].net+=net; bySku[sku].cop+=cop; bySku[sku].pl+=pl;
+      // Pricing: SHORT (W<V) or EXCESS (W>V)
+      if (required > 0 && gross !== required) {
+        var pType = gross < required ? 'short' : 'excess';
+        var diff = Math.round((gross - required) * 100) / 100;
+        pricing[pType].count++;
+        pricing[pType].totalDiff += diff;
+        if (!pricing[pType].byPlatform[platform]) pricing[pType].byPlatform[platform] = {count:0,diff:0,byCompany:{}};
+        pricing[pType].byPlatform[platform].count++;
+        pricing[pType].byPlatform[platform].diff += diff;
+        if (!pricing[pType].byPlatform[platform].byCompany[company]) pricing[pType].byPlatform[platform].byCompany[company] = {count:0,diff:0,rows:[]};
+        pricing[pType].byPlatform[platform].byCompany[company].count++;
+        pricing[pType].byPlatform[platform].byCompany[company].diff += diff;
+        pricing[pType].byPlatform[platform].byCompany[company].rows.push({unique:String(unique),sku:sku,category:category,qty:qty,required:required,gross:gross,diff:diff,date:dateStr});
+      }
     }
     summary.avgOrderValue = summary.totalOrders > 0 ? summary.grossReceived / summary.totalOrders : 0;
     summary.margin = summary.grossReceived > 0 ? (summary.pl / summary.grossReceived * 100) : 0;
@@ -1714,7 +1731,11 @@ function doGet(e) {
     _roundObj(summary); for(var k in byPlatform)_roundObj(byPlatform[k]); for(var k in byCompany)_roundObj(byCompany[k]);
     for(var i=0;i<byMonth.length;i++)_roundObj(byMonth[i]); for(var k in byCategory)_roundObj(byCategory[k]);
     for(var i=0;i<daily.length;i++)_roundObj(daily[i]); for(var i=0;i<topSkus.length;i++)_roundObj(topSkus[i]);
-    return _jsonResp({summary:summary,byPlatform:byPlatform,byCompany:byCompany,byMonth:byMonth,byCategory:byCategory,daily:daily,topSkus:topSkus,platforms:platforms,companies:companies,timestamp:new Date().toISOString()});
+    // Round pricing diffs
+    pricing.short.totalDiff=Math.round(pricing.short.totalDiff*100)/100;
+    pricing.excess.totalDiff=Math.round(pricing.excess.totalDiff*100)/100;
+    for(var pt in pricing){for(var pp in pricing[pt].byPlatform){pricing[pt].byPlatform[pp].diff=Math.round(pricing[pt].byPlatform[pp].diff*100)/100;for(var pc in pricing[pt].byPlatform[pp].byCompany){pricing[pt].byPlatform[pp].byCompany[pc].diff=Math.round(pricing[pt].byPlatform[pp].byCompany[pc].diff*100)/100;}}}
+    return _jsonResp({summary:summary,byPlatform:byPlatform,byCompany:byCompany,byMonth:byMonth,byCategory:byCategory,daily:daily,topSkus:topSkus,platforms:platforms,companies:companies,pricing:pricing,timestamp:new Date().toISOString()});
   } catch (err) { return _jsonResp({ error: err.message }); }
 }
 
