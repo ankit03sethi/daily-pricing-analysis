@@ -1603,58 +1603,60 @@ function autoRefresh() {
 
 function doGet(e) {
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MASTER CSV');
-    if (!sheet) throw new Error('Sheet "MASTER CSV" not found');
-    var lastRow = sheet.getLastRow();
-    var lastCol = sheet.getLastColumn();
-    if (lastRow < 2) {
+    var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+    var tab = 'MASTER CSV';
+    // Only fetch the 14 columns we need using fast Sheets API batchGet
+    // A=unique, C=year, D=month, E=date, F=platform, G=company, M=quantity,
+    // O=masterSku, Q=category, W=grossReceived, Y=taxAmount, Z=netReceived, AA=cop, AB=p/l
+    var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB'];
+    var ranges = [];
+    for (var i = 0; i < colRanges.length; i++) ranges.push("'" + tab + "'!" + colRanges[i]);
+    var res = Sheets.Spreadsheets.Values.batchGet(ssId, {ranges: ranges, valueRenderOption: 'UNFORMATTED_VALUE'});
+    var vr = res.valueRanges;
+    var maxRows = 0;
+    for (var v = 0; v < vr.length; v++) { var len = (vr[v].values || []).length; if (len > maxRows) maxRows = len; }
+    if (maxRows === 0) {
       return _jsonResp({ summary: {}, byPlatform: {}, byCompany: {}, byMonth: [], byCategory: {}, timestamp: new Date().toISOString() });
     }
-    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-    for (var i = 0; i < headers.length; i++) headers[i] = String(headers[i] || '').trim();
-    var COL = {};
-    var colNames = {
-      'UNIQUE':'unique','S.NO':'sno','YEAR':'year','MONTH':'month','DATE':'date',
-      'PLATFORM':'platform','COMPANY':'company','ORDER ID':'orderId',
-      'TRACKING ID':'trackingId','COMPANY ID':'companyId','SKU ID':'skuId',
-      'SUB ORDER ID':'subOrderId','QUANTITY':'quantity','COURIER':'courier',
-      'MASTER SKU':'masterSku','SINGLE-COMBO':'singleCombo','CATEGORY':'category',
-      'SUB CATEGORY':'subCategory','COLOR':'color','PRODUCT':'product',
-      'LINK':'link','REQUIRED':'required','GROSS RECEIVED':'grossReceived',
-      'TAX %':'taxPct','TAX AMOUNT':'taxAmount','NET RECEIVED':'netReceived',
-      'COP':'cop','P/L':'pl','ACTUAL PRICE':'actualPrice',
-      'SELLING PRICE':'sellingPrice','ESTIMADED SELLING PRICE':'estSellingPrice'
-    };
-    for (var i = 0; i < headers.length; i++) {
-      var hU = headers[i].toUpperCase();
-      for (var key in colNames) { if (hU === key || hU.indexOf(key) >= 0) { COL[colNames[key]] = i; break; } }
-    }
-    var numRows = lastRow - 1;
-    var rawData = sheet.getRange(2, 1, numRows, lastCol).getValues();
+    // Build column arrays for fast access
+    var cols = [];
+    for (var c = 0; c < vr.length; c++) { cols.push(vr[c].values || []); }
+    // col indices: 0=unique,1=year,2=month,3=date,4=platform,5=company,6=qty,7=masterSku,8=category,9=gross,10=taxAmt,11=net,12=cop,13=pl
     var summary = {totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0};
     var byPlatform={},byCompany={},byMonthMap={},byCategory={},bySku={},dailyMap={};
-    for (var r = 0; r < rawData.length; r++) {
-      var row = rawData[r];
-      if (!row[0] || String(row[0]).trim() === '') continue;
-      var qty = _toNum(row[COL.quantity] !== undefined ? row[COL.quantity] : 0);
-      var gross = _toNum(row[COL.grossReceived] !== undefined ? row[COL.grossReceived] : 0);
-      var net = _toNum(row[COL.netReceived] !== undefined ? row[COL.netReceived] : 0);
-      var tax = _toNum(row[COL.taxAmount] !== undefined ? row[COL.taxAmount] : 0);
-      var cop = _toNum(row[COL.cop] !== undefined ? row[COL.cop] : 0);
-      var pl = _toNum(row[COL.pl] !== undefined ? row[COL.pl] : 0);
-      var platform = String(row[COL.platform] || '').trim() || 'Unknown';
-      var company = String(row[COL.company] || '').trim() || 'Unknown';
-      var category = String(row[COL.category] || '').trim() || 'Unknown';
-      var sku = String(row[COL.masterSku] || '').trim() || 'Unknown';
-      var dateVal = row[COL.date]; var dateStr = ''; var monthKey = '';
-      if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+    for (var r = 0; r < maxRows; r++) {
+      var unique = r < cols[0].length && cols[0][r].length > 0 ? cols[0][r][0] : '';
+      if (!unique || String(unique).trim() === '') continue;
+      var qty = _toNum(r < cols[6].length && cols[6][r].length > 0 ? cols[6][r][0] : 0);
+      var gross = _toNum(r < cols[9].length && cols[9][r].length > 0 ? cols[9][r][0] : 0);
+      var net = _toNum(r < cols[11].length && cols[11][r].length > 0 ? cols[11][r][0] : 0);
+      var tax = _toNum(r < cols[10].length && cols[10][r].length > 0 ? cols[10][r][0] : 0);
+      var cop = _toNum(r < cols[12].length && cols[12][r].length > 0 ? cols[12][r][0] : 0);
+      var pl = _toNum(r < cols[13].length && cols[13][r].length > 0 ? cols[13][r][0] : 0);
+      var platform = String(r < cols[4].length && cols[4][r].length > 0 ? cols[4][r][0] : '').trim() || 'Unknown';
+      var company = String(r < cols[5].length && cols[5][r].length > 0 ? cols[5][r][0] : '').trim() || 'Unknown';
+      var category = String(r < cols[8].length && cols[8][r].length > 0 ? cols[8][r][0] : '').trim() || 'Unknown';
+      var sku = String(r < cols[7].length && cols[7][r].length > 0 ? cols[7][r][0] : '').trim() || 'Unknown';
+      var dateVal = r < cols[3].length && cols[3][r].length > 0 ? cols[3][r][0] : '';
+      var dateStr = ''; var monthKey = '';
+      if (typeof dateVal === 'number') {
+        // Serial date number from Sheets API
+        var epoch = new Date(1899, 11, 30);
+        var d = new Date(epoch.getTime() + dateVal * 86400000);
+        dateStr = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+        monthKey = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM');
+      } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
         dateStr = Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'yyyy-MM-dd');
         monthKey = Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'yyyy-MM');
       } else if (dateVal) {
         var parsed = new Date(dateVal);
         if (!isNaN(parsed.getTime())) { dateStr = Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd'); monthKey = Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM'); }
       }
-      if (!monthKey) { var yr = String(row[COL.year]||'').trim(); var mo = String(row[COL.month]||'').trim(); if (yr && mo) monthKey = yr + '-' + _monthToNum(mo); }
+      if (!monthKey) {
+        var yr = String(r < cols[1].length && cols[1][r].length > 0 ? cols[1][r][0] : '').trim();
+        var mo = String(r < cols[2].length && cols[2][r].length > 0 ? cols[2][r][0] : '').trim();
+        if (yr && mo) monthKey = yr + '-' + _monthToNum(mo);
+      }
       summary.totalOrders++; summary.totalQty+=qty; summary.grossReceived+=gross; summary.netReceived+=net; summary.taxAmount+=tax; summary.cop+=cop; summary.pl+=pl;
       if (!byPlatform[platform]) byPlatform[platform]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};
       byPlatform[platform].orders++; byPlatform[platform].qty+=qty; byPlatform[platform].gross+=gross; byPlatform[platform].net+=net; byPlatform[platform].tax+=tax; byPlatform[platform].cop+=cop; byPlatform[platform].pl+=pl;
@@ -1669,8 +1671,8 @@ function doGet(e) {
     }
     summary.avgOrderValue = summary.totalOrders > 0 ? summary.grossReceived / summary.totalOrders : 0;
     summary.margin = summary.grossReceived > 0 ? (summary.pl / summary.grossReceived * 100) : 0;
-    var byMonth = []; var monthKeys = Object.keys(byMonthMap).sort();
-    for (var i = 0; i < monthKeys.length; i++) byMonth.push(byMonthMap[monthKeys[i]]);
+    var byMonth = []; var mKeys = Object.keys(byMonthMap).sort();
+    for (var i = 0; i < mKeys.length; i++) byMonth.push(byMonthMap[mKeys[i]]);
     var daily = []; var dailyKeys = Object.keys(dailyMap).sort();
     var startIdx = Math.max(0, dailyKeys.length - 60);
     for (var i = startIdx; i < dailyKeys.length; i++) daily.push(dailyMap[dailyKeys[i]]);
