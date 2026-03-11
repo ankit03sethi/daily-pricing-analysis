@@ -84,10 +84,10 @@ tr:hover td{background:#1f2b47}
   <select id="fDateRange" onchange="loadData()" style="background:#0a1628;color:#39ff14;border:1px solid #39ff14;border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">
     <option value="">All Time</option>
     <option value="0">Today</option>
-    <option value="1">Yesterday</option>
+    <option value="1" selected>Yesterday</option>
     <option value="7">Last 7 Days</option>
     <option value="15">Last 15 Days</option>
-    <option value="30" selected>Last 30 Days</option>
+    <option value="30">Last 30 Days</option>
     <option value="60">Last 60 Days</option>
   </select>
   <select id="fPlatform"><option value="">All Platforms</option></select>
@@ -205,6 +205,7 @@ var API_URL='https://script.google.com/macros/s/AKfycbwrxiB5E2gnHJlNKXeuMs1x_OEq
 var DATA={},FILTERED_DATA={};
 var CHS={};
 var ACTIVE_TAB='overview';
+var DATA_CACHE={}; // cache API responses by days value
 
 function fmt(n){if(n==null||isNaN(n))return '0';return Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});}
 function fmtCur(n){return '₹'+fmt(n);}
@@ -212,19 +213,22 @@ function fmtPct(n){return (n||0).toFixed(1)+'%';}
 
 // ===== LOAD DATA =====
 function loadData(){
+  var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
+  var cacheKey=daysVal===''?'all':daysVal;
+  // Return cached data instantly if available
+  if(DATA_CACHE[cacheKey]){onData(DATA_CACHE[cacheKey]);return;}
   document.getElementById('loader').style.display='block';
   document.getElementById('app').style.display='none';
   var controller=new AbortController();
   var tid=setTimeout(function(){controller.abort();},120000);
   var url=API_URL;
-  var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
   if(daysVal!=='')url+='?days='+daysVal;
   fetch(url,{redirect:'follow',signal:controller.signal})
     .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
     .then(function(text){
       if(!text||text.trim().length===0){onErr('Empty response.');return;}
       if(text.trim().charAt(0)==='<'){onErr('API returned HTML. Deploy with access: Anyone');return;}
-      try{var d=JSON.parse(text);onData(d);}catch(e){onErr('JSON parse error: '+e.message);}
+      try{var d=JSON.parse(text);DATA_CACHE[cacheKey]=d;onData(d);}catch(e){onErr('JSON parse error: '+e.message);}
     })
     .catch(function(e){clearTimeout(tid);onErr((e.name==='AbortError'?'Timeout (120s).':'Fetch failed: '+e.message));});
 }
@@ -301,7 +305,7 @@ function clearFilters(){
   document.getElementById('fPlatform').value='';
   document.getElementById('fCompany').value='';
   document.getElementById('fMonth').value='';
-  document.getElementById('fDateRange').value='30';
+  document.getElementById('fDateRange').value='1';
   FILTERED_DATA=DATA;
   renderAll();
 }
