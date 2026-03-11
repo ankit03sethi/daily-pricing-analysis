@@ -805,8 +805,8 @@ function renderDrillTable(){
     h+='</tr></thead><tbody>';
     for(var i=0;i<gArr.length;i++){
       var g=gArr[i],dc=g.diff<0?'loss':'profit';
-      h+='<tr style="cursor:pointer" onclick="expandSkuGroup('+i+')">';
-      h+='<td style="color:#4fc3f7;font-weight:700">'+g.count+'</td><td>'+g.skuId+'</td><td>'+g.platform+'</td><td>'+g.company+'</td><td>'+g.sku+'</td><td>'+g.category+'</td><td>'+g.subCategory+'</td><td>'+g.product+'</td><td>'+g.color+'</td><td>'+g.qty+'</td><td>'+fmt(g.required)+'</td><td>'+fmt(g.gross)+'</td><td class="'+dc+'">'+fmt(g.diff)+'</td><td>'+fmt(g.taxAmt)+'</td><td>'+fmt(g.net)+'</td><td>'+fmt(g.cop)+'</td><td class="'+(g.pl>=0?'profit':'loss')+'">'+fmt(g.pl)+'</td><td>'+fmt(g.actualPrice)+'</td><td>'+fmt(g.sellingPrice)+'</td><td>'+fmt(g.estSellingPrice)+'</td>';
+      h+='<tr>';
+      h+='<td style="color:#4fc3f7;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px" onmouseover="this.style.background=\'#1e3a5f\';this.style.borderRadius=\'4px\'" onmouseout="this.style.background=\'none\'" onclick="expandSkuGroup('+i+')">'+g.count+'</td><td>'+g.skuId+'</td><td>'+g.platform+'</td><td>'+g.company+'</td><td>'+g.sku+'</td><td>'+g.category+'</td><td>'+g.subCategory+'</td><td>'+g.product+'</td><td>'+g.color+'</td><td>'+g.qty+'</td><td>'+fmt(g.required)+'</td><td>'+fmt(g.gross)+'</td><td class="'+dc+'">'+fmt(g.diff)+'</td><td>'+fmt(g.taxAmt)+'</td><td>'+fmt(g.net)+'</td><td>'+fmt(g.cop)+'</td><td class="'+(g.pl>=0?'profit':'loss')+'">'+fmt(g.pl)+'</td><td>'+fmt(g.actualPrice)+'</td><td>'+fmt(g.sellingPrice)+'</td><td>'+fmt(g.estSellingPrice)+'</td>';
       h+='</tr>';
     }
     h+='</tbody></table></div></div>';
