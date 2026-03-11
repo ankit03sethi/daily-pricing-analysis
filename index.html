@@ -47,6 +47,8 @@ th{background:#0a1e40;color:#4fc3f7;padding:6px 8px;text-align:center;position:s
 th:hover{background:#1a4a80;color:#39ff14}
 th .arrow{margin-left:4px;font-size:10px;color:#39ff14}
 td{padding:5px 8px;border-bottom:1px solid #1a1a2e;color:#ddd;text-align:center}
+th.sticky-col,td.sticky-col{position:sticky;left:0;z-index:3;background:#0a1e40}
+td.sticky-col{background:#0d1a30}
 tr:nth-child(even) td{background:#0a0f1e}
 tr:hover td{background:#1f2b47}
 .profit{color:#39ff14;font-weight:700}.loss{color:#dc2f02;font-weight:700}
@@ -857,12 +859,12 @@ function renderDrillTable(){
     var gArr=Object.values(groups).sort(function(a,b){return b.count-a.count;});
     var h='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input class="srch" id="drillSearch" onkeyup="drillFilterTable()" placeholder="Search SKUs..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="drillDownloadCSV()" class="fbtn dl">Download CSV</button><button onclick="showAllPricingRows()" class="fbtn" style="background:#a855f7;color:#fff">ALL</button><span style="color:#aaa;margin-left:auto;font-size:12px">'+gArr.length+' UNIQUE SKUs FROM '+rows.length+' ROWS</span></div>';
     h+='<div class="tbox" style="margin:0"><h3>SKU SUMMARY<span>'+gArr.length+' SKUs</span></h3><div class="twrap"><table id="drillTable"><thead><tr>';
-    h+='<th>COUNT</th><th>SKU ID</th><th>PLATFORM</th><th>COMPANY</th><th>MASTER SKU</th><th>CATEGORY</th><th>SUB CAT</th><th>PRODUCT</th><th>COLOR</th><th>QTY</th><th>REQUIRED</th><th>GROSS</th><th>DIFF</th><th>TAX AMT</th><th>NET</th><th>COP</th><th>P/L</th><th>ACTUAL PRICE</th><th>SELLING PRICE</th><th>EST PRICE</th>';
+    h+='<th class="sticky-col">COUNT</th><th>SKU ID</th><th>PLATFORM</th><th>COMPANY</th><th>MASTER SKU</th><th>CATEGORY</th><th>SUB CAT</th><th>PRODUCT</th><th>COLOR</th><th>QTY</th><th>REQUIRED</th><th>GROSS</th><th>DIFF</th><th>TAX AMT</th><th>NET</th><th>COP</th><th>P/L</th><th>ACTUAL PRICE</th><th>SELLING PRICE</th><th>EST PRICE</th>';
     h+='</tr></thead><tbody>';
     for(var i=0;i<gArr.length;i++){
       var g=gArr[i],dc=g.diff<0?'loss':'profit';
       h+='<tr>';
-      h+='<td style="color:#4fc3f7;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px" onmouseover="this.style.background=\'#1e3a5f\';this.style.borderRadius=\'4px\'" onmouseout="this.style.background=\'none\'" onclick="expandSkuGroup('+i+')">'+g.count+'</td><td>'+g.skuId+'</td><td>'+g.platform+'</td><td>'+g.company+'</td><td>'+g.sku+'</td><td>'+g.category+'</td><td>'+g.subCategory+'</td><td>'+g.product+'</td><td>'+g.color+'</td><td>'+g.qty+'</td><td>'+fmt(g.required)+'</td><td>'+fmt(g.gross)+'</td><td class="'+dc+'">'+fmt(g.diff)+'</td><td>'+fmt(g.taxAmt)+'</td><td>'+fmt(g.net)+'</td><td>'+fmt(g.cop)+'</td><td class="'+(g.pl>=0?'profit':'loss')+'">'+fmt(g.pl)+'</td><td>'+fmt(g.actualPrice)+'</td><td>'+fmt(g.sellingPrice)+'</td><td>'+fmt(g.estSellingPrice)+'</td>';
+      h+='<td class="sticky-col" style="color:#4fc3f7;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px" onmouseover="this.style.background=\'#1e3a5f\'" onmouseout="this.style.background=\'#0d1a30\'" onclick="expandSkuGroup('+i+')">'+g.count+'</td><td>'+g.skuId+'</td><td>'+g.platform+'</td><td>'+g.company+'</td><td>'+g.sku+'</td><td>'+g.category+'</td><td>'+g.subCategory+'</td><td>'+g.product+'</td><td>'+g.color+'</td><td>'+g.qty+'</td><td>'+fmt(g.required)+'</td><td>'+fmt(g.gross)+'</td><td class="'+dc+'">'+fmt(g.diff)+'</td><td>'+fmt(g.taxAmt)+'</td><td>'+fmt(g.net)+'</td><td>'+fmt(g.cop)+'</td><td class="'+(g.pl>=0?'profit':'loss')+'">'+fmt(g.pl)+'</td><td>'+fmt(g.actualPrice)+'</td><td>'+fmt(g.sellingPrice)+'</td><td>'+fmt(g.estSellingPrice)+'</td>';
       h+='</tr>';
     }
     h+='</tbody></table></div></div>';
