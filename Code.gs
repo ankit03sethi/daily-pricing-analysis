@@ -1682,7 +1682,7 @@ function doGet(e) {
       return ContentService.createTextOutput(JSON.stringify({rows:matchRows})).setMimeType(ContentService.MimeType.JSON);
     }
     // MAIN MODE: only fetch 11 summary columns (no detail columns)
-    var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','V2:V','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB','K2:K','P2:P','R2:R','S2:S'];
+    var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','V2:V','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB'];
     var ranges = [];
     for (var i = 0; i < colRanges.length; i++) ranges.push("'" + tab + "'!" + colRanges[i]);
     var res = Sheets.Spreadsheets.Values.batchGet(ssId, {ranges: ranges, valueRenderOption: 'UNFORMATTED_VALUE'});
@@ -1690,16 +1690,16 @@ function doGet(e) {
     var maxRows = 0;
     for (var v = 0; v < vr.length; v++) { var len = (vr[v].values || []).length; if (len > maxRows) maxRows = len; }
     if (maxRows === 0) {
-      return _jsonResp({summary:{},byPlatform:{},byCompany:{},byMonth:[],byCategory:{},daily:[],topSkus:[],platforms:[],companies:[],pricing:{short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}},skuIds:[],masterSkus:[],categories:[],subCategories:[],colors:[],products:[],timestamp:new Date().toISOString()});
+      return _jsonResp({summary:{},byPlatform:{},byCompany:{},byMonth:[],byCategory:{},daily:[],topSkus:[],platforms:[],companies:[],pricing:{short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}},masterSkus:[],categories:[],timestamp:new Date().toISOString()});
     }
     var cols = [];
     for (var c = 0; c < vr.length; c++) cols.push(vr[c].values || []);
-    // cols: 0=unique,1=year,2=month,3=date,4=platform,5=company,6=qty,7=masterSku,8=category,9=required,10=gross,11=taxAmt,12=net,13=cop,14=pl,15=skuId,16=subCat,17=color,18=product
+    // cols: 0=unique,1=year,2=month,3=date,4=platform,5=company,6=qty,7=masterSku,8=category,9=required,10=gross,11=taxAmt,12=net,13=cop,14=pl
     var summary = {totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0};
     var byPlatform={},byCompany={},byMonthMap={},byCategory={},bySku={},dailyMap={};
     var seenOrders={},seenByPlatform={},seenByCompany={},seenByMonth={},seenByCategory={},seenByDaily={};
     var pricing={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}};
-    var uniqueSkuIds={}, uniqueMasterSkus={}, uniqueCategories={}, uniqueSubCats={}, uniqueColors={}, uniqueProducts={};
+    var uniqueMasterSkus={}, uniqueCategories={};
     for (var r = 0; r < maxRows; r++) {
       var unique = r < cols[0].length && cols[0][r].length > 0 ? cols[0][r][0] : '';
       if (!unique || String(unique).trim() === '') continue;
@@ -1714,16 +1714,8 @@ function doGet(e) {
       var company = String(r < cols[5].length && cols[5][r].length > 0 ? cols[5][r][0] : '').trim() || 'Unknown';
       var category = String(r < cols[8].length && cols[8][r].length > 0 ? cols[8][r][0] : '').trim() || 'Unknown';
       var sku = String(r < cols[7].length && cols[7][r].length > 0 ? cols[7][r][0] : '').trim() || 'Unknown';
-      var skuId = String(r < cols[15].length && cols[15][r].length > 0 ? cols[15][r][0] : '').trim();
-      var subCat = String(r < cols[16].length && cols[16][r].length > 0 ? cols[16][r][0] : '').trim();
-      var color = String(r < cols[17].length && cols[17][r].length > 0 ? cols[17][r][0] : '').trim();
-      var product = String(r < cols[18].length && cols[18][r].length > 0 ? cols[18][r][0] : '').trim();
-      if(skuId) uniqueSkuIds[skuId]=1;
-      if(sku) uniqueMasterSkus[sku]=1;
+      if(sku && sku!=='Unknown') uniqueMasterSkus[sku]=1;
       if(category && category!=='Unknown') uniqueCategories[category]=1;
-      if(subCat) uniqueSubCats[subCat]=1;
-      if(color) uniqueColors[color]=1;
-      if(product) uniqueProducts[product]=1;
       var dateVal = r < cols[3].length && cols[3][r].length > 0 ? cols[3][r][0] : '';
       var dateStr = ''; var monthKey = '';
       if (typeof dateVal === 'number') {
@@ -1796,7 +1788,7 @@ function doGet(e) {
     pricing.excess.totalDiff=Math.round(pricing.excess.totalDiff*100)/100;
     pricing.equal.totalDiff=Math.round(pricing.equal.totalDiff*100)/100;
     for(var pt in pricing){for(var pp in pricing[pt].byPlatform){pricing[pt].byPlatform[pp].diff=Math.round(pricing[pt].byPlatform[pp].diff*100)/100;for(var pc in pricing[pt].byPlatform[pp].byCompany){pricing[pt].byPlatform[pp].byCompany[pc].diff=Math.round(pricing[pt].byPlatform[pp].byCompany[pc].diff*100)/100;}}}
-    var result = {summary:summary,byPlatform:byPlatform,byCompany:byCompany,byMonth:byMonth,byCategory:byCategory,daily:daily,topSkus:topSkus,platforms:platforms,companies:companies,pricing:pricing,skuIds:Object.keys(uniqueSkuIds).sort(),masterSkus:Object.keys(uniqueMasterSkus).sort(),categories:Object.keys(uniqueCategories).sort(),subCategories:Object.keys(uniqueSubCats).sort(),colors:Object.keys(uniqueColors).sort(),products:Object.keys(uniqueProducts).sort(),timestamp:new Date().toISOString()};
+    var result = {summary:summary,byPlatform:byPlatform,byCompany:byCompany,byMonth:byMonth,byCategory:byCategory,daily:daily,topSkus:topSkus,platforms:platforms,companies:companies,pricing:pricing,masterSkus:Object.keys(uniqueMasterSkus).sort(),categories:Object.keys(uniqueCategories).sort(),timestamp:new Date().toISOString()};
     var jsonStr = JSON.stringify(result);
     // Size check: if > 5MB, strip daily to save space
     if (jsonStr.length > 5000000) {

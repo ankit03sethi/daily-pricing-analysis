@@ -131,10 +131,6 @@ tr:hover td{background:#1f2b47}
   <select id="fCompany" onchange="applyAllFilters()"><option value="">All Companies</option></select>
   <select id="fMasterSku" onchange="applyAllFilters()"><option value="">All Master SKUs</option></select>
   <select id="fCategory" onchange="applyAllFilters()"><option value="">All Categories</option></select>
-  <select id="fSubCategory" onchange="applyAllFilters()"><option value="">All SubCategories</option></select>
-  <select id="fColor" onchange="applyAllFilters()"><option value="">All Colors</option></select>
-  <select id="fProduct" onchange="applyAllFilters()"><option value="">All Products</option></select>
-  <select id="fSku" onchange="applyAllFilters()"><option value="">All SKU IDs</option></select>
   <button class="fbtn clr" onclick="clearAllFilters()">Clear</button>
   <button class="fbtn ref" onclick="forceRefresh()">Refresh</button>
   <button class="fbtn dl" onclick="downloadCSV()">Download CSV</button>
@@ -344,9 +340,9 @@ DATA=d;FILTERED_DATA=d;
 // ===== FILTERS =====
 function buildFilters(){
   var src=DATA_CACHE['all']||DATA;
-  var selIds=['fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
-  var dataKeys=['platforms','companies','masterSkus','categories','subCategories','colors','products','skuIds'];
-  var labels=['All Platforms','All Companies','All Master SKUs','All Categories','All SubCategories','All Colors','All Products','All SKU IDs'];
+  var selIds=['fPlatform','fCompany','fMasterSku','fCategory'];
+  var dataKeys=['platforms','companies','masterSkus','categories'];
+  var labels=['All Platforms','All Companies','All Master SKUs','All Categories'];
   for(var i=0;i<selIds.length;i++){
     var sel=document.getElementById(selIds[i]);
     if(!sel)continue;
@@ -404,17 +400,11 @@ function applyDateFilter(){
 }
 
 function applyAllFilters(){
-  // Get all filter values
   var fp=document.getElementById('fPlatform').value;
   var fc=document.getElementById('fCompany').value;
   var fms=document.getElementById('fMasterSku').value;
   var fcat=document.getElementById('fCategory').value;
-  var fsub=document.getElementById('fSubCategory').value;
-  var fcol=document.getElementById('fColor').value;
-  var fprod=document.getElementById('fProduct').value;
-  var fsku=document.getElementById('fSku').value;
-  // If no filters, just use DATA
-  if(!fp&&!fc&&!fms&&!fcat&&!fsub&&!fcol&&!fprod&&!fsku){FILTERED_DATA=DATA;renderAll();return;}
+  if(!fp&&!fc&&!fms&&!fcat){FILTERED_DATA=DATA;renderAll();return;}
   // Filter byPlatform
   var fd={summary:{totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0},byPlatform:{},byCompany:{},byMonth:DATA.byMonth||[],byCategory:{},daily:DATA.daily||[],topSkus:DATA.topSkus,platforms:DATA.platforms,companies:DATA.companies,pricing:DATA.pricing,timestamp:DATA.timestamp};
   // Filter byPlatform
@@ -440,7 +430,7 @@ function applyAllFilters(){
 }
 
 function clearAllFilters(){
-  var selIds=['fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
+  var selIds=['fPlatform','fCompany','fMasterSku','fCategory'];
   for(var i=0;i<selIds.length;i++){var s=document.getElementById(selIds[i]);if(s)s.value='';}
   FILTERED_DATA=DATA;renderAll();
 }
