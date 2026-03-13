@@ -851,37 +851,41 @@ function drillToCompany(comp){
 function renderDrillTable(){
   var isPricing=(DM.type==='short'||DM.type==='excess');
   if(isPricing){
-    var rows;
-    if(DM.company==='ALL'){rows=[];for(var cc in DM.companies)rows=rows.concat(DM.companies[cc].rows);}
-    else{rows=DM.companies[DM.company]?DM.companies[DM.company].rows:[];}
-    rows.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
-    // SKU Summary: group by skuId+platform+company
-    var groups={};
-    for(var i=0;i<rows.length;i++){
-      var r=rows[i],gk=(r.skuId||r.sku)+'|'+(r.platform||'')+'|'+(r.company||'');
-      if(!groups[gk]){groups[gk]={skuId:r.skuId||r.sku,platform:r.platform||'',company:r.company||'',sku:r.sku,category:r.category,subCategory:r.subCategory||'',singleCombo:r.singleCombo||'',color:r.color||'',product:r.product||'',courier:r.courier||'',count:0,qty:0,required:0,gross:0,diff:0,taxAmt:0,net:0,cop:0,pl:0,actualPrice:0,sellingPrice:0,estSellingPrice:0,rows:[]};}
-      groups[gk].count++;groups[gk].qty+=r.qty;groups[gk].required+=r.required;groups[gk].gross+=r.gross;groups[gk].diff+=r.diff;groups[gk].taxAmt+=(r.taxAmt||0);groups[gk].net+=(r.net||0);groups[gk].cop+=(r.cop||0);groups[gk].pl+=(r.pl||0);groups[gk].actualPrice+=(r.actualPrice||0);groups[gk].sellingPrice+=(r.sellingPrice||0);groups[gk].estSellingPrice+=(r.estSellingPrice||0);groups[gk].rows.push(r);
-    }
-    var gArr=Object.values(groups).sort(function(a,b){return b.count-a.count;});
-    var h='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input class="srch" id="drillSearch" onkeyup="drillFilterTable()" placeholder="Search SKUs..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="drillDownloadCSV()" class="fbtn dl">Download CSV</button><button onclick="showAllPricingRows()" class="fbtn" style="background:#a855f7;color:#fff">ALL</button><span style="color:#aaa;margin-left:auto;font-size:12px">'+gArr.length+' UNIQUE SKUs FROM '+rows.length+' ROWS</span></div>';
-    h+='<div class="tbox" style="margin:0"><h3>SKU SUMMARY<span>'+gArr.length+' SKUs</span></h3><div class="twrap"><table id="drillTable"><thead><tr>';
-    h+='<th class="sticky-col">COUNT</th><th>SKU ID</th><th>PLATFORM</th><th>COMPANY</th><th>MASTER SKU</th><th>CATEGORY</th><th>SUB CAT</th><th>PRODUCT</th><th>COLOR</th><th>QTY</th><th>REQUIRED</th><th>GROSS</th><th>DIFF</th><th>TAX AMT</th><th>NET</th><th>COP</th><th>P/L</th><th>ACTUAL PRICE</th><th>SELLING PRICE</th><th>EST PRICE</th>';
-    h+='</tr></thead><tbody>';
-    for(var i=0;i<gArr.length;i++){
-      var g=gArr[i],dc=g.diff<0?'loss':'profit';
-      h+='<tr>';
-      h+='<td class="sticky-col" style="color:#4fc3f7;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px" onmouseover="this.style.background=\'#1e3a5f\'" onmouseout="this.style.background=\'#0d1a30\'" onclick="expandSkuGroup('+i+')">'+g.count+'</td><td>'+g.skuId+'</td><td>'+g.platform+'</td><td>'+g.company+'</td><td>'+g.sku+'</td><td>'+g.category+'</td><td>'+g.subCategory+'</td><td>'+g.product+'</td><td>'+g.color+'</td><td>'+g.qty+'</td><td>'+fmt(g.required)+'</td><td>'+fmt(g.gross)+'</td><td class="'+dc+'">'+fmt(g.diff)+'</td><td>'+fmt(g.taxAmt)+'</td><td>'+fmt(g.net)+'</td><td>'+fmt(g.cop)+'</td><td class="'+(g.pl>=0?'profit':'loss')+'">'+fmt(g.pl)+'</td><td>'+fmt(g.actualPrice)+'</td><td>'+fmt(g.sellingPrice)+'</td><td>'+fmt(g.estSellingPrice)+'</td>';
-      h+='</tr>';
-    }
-    h+='</tbody></table></div></div>';
-    document.getElementById('modalContent').innerHTML=h;
-    // Store groups for expand
-    window._skuGroups=gArr;
-    window._allPricingRows=rows;
+    // Fetch rows on-demand from API
+    document.getElementById('modalContent').innerHTML='<div style="text-align:center;padding:40px;color:#4fc3f7">Loading pricing rows...<br><small>Fetching data from server</small></div>';
+    var rowUrl=API_URL+'?mode=rows&type='+encodeURIComponent(DM.type)+'&platform='+encodeURIComponent(DM.platform||'')+'&company='+encodeURIComponent(DM.company==='ALL'?'':DM.company);
+    fetch(rowUrl,{redirect:'follow'}).then(function(r){return r.text();}).then(function(text){
+      try{var d=JSON.parse(text);var rawRows=d.rows||[];var rows=[];for(var ri=0;ri<rawRows.length;ri++){rows.push(_expandRow(rawRows[ri]));}rows.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});_renderDrillRows(rows);}catch(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Error loading rows: '+e.message+'</div>';}
+    }).catch(function(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Fetch failed: '+e.message+'</div>';});
+    return;
   } else {
     var h='<div style="padding:20px;text-align:center;color:#aaa;font-size:14px">Detailed row-level data is available for SHORT and EXCESS pricing cards.<br>Financial Overview cards show aggregated Platform &rarr; Company breakdown.</div>';
     document.getElementById('modalContent').innerHTML=h;
   }
+}
+
+function _renderDrillRows(rows){
+  var groups={};
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i],gk=(r.skuId||r.sku)+'|'+(r.platform||'')+'|'+(r.company||'');
+    if(!groups[gk]){groups[gk]={skuId:r.skuId||r.sku,platform:r.platform||'',company:r.company||'',sku:r.sku,category:r.category,subCategory:r.subCategory||'',singleCombo:r.singleCombo||'',color:r.color||'',product:r.product||'',courier:r.courier||'',count:0,qty:0,required:0,gross:0,diff:0,taxAmt:0,net:0,cop:0,pl:0,actualPrice:0,sellingPrice:0,estSellingPrice:0,rows:[]};}
+    groups[gk].count++;groups[gk].qty+=r.qty;groups[gk].required+=r.required;groups[gk].gross+=r.gross;groups[gk].diff+=r.diff;groups[gk].taxAmt+=(r.taxAmt||0);groups[gk].net+=(r.net||0);groups[gk].cop+=(r.cop||0);groups[gk].pl+=(r.pl||0);groups[gk].actualPrice+=(r.actualPrice||0);groups[gk].sellingPrice+=(r.sellingPrice||0);groups[gk].estSellingPrice+=(r.estSellingPrice||0);groups[gk].rows.push(r);
+  }
+  var gArr=Object.values(groups).sort(function(a,b){return b.count-a.count;});
+  var h='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center"><input class="srch" id="drillSearch" onkeyup="drillFilterTable()" placeholder="Search SKUs..." style="background:#0a1628;color:#fff;border:1px solid #4fc3f7;border-radius:6px;padding:6px 10px;width:200px"><button onclick="drillDownloadCSV()" class="fbtn dl">Download CSV</button><button onclick="showAllPricingRows()" class="fbtn" style="background:#a855f7;color:#fff">ALL</button><span style="color:#aaa;margin-left:auto;font-size:12px">'+gArr.length+' UNIQUE SKUs FROM '+rows.length+' ROWS</span></div>';
+  h+='<div class="tbox" style="margin:0"><h3>SKU SUMMARY<span>'+gArr.length+' SKUs</span></h3><div class="twrap"><table id="drillTable"><thead><tr>';
+  h+='<th class="sticky-col">COUNT</th><th>SKU ID</th><th>PLATFORM</th><th>COMPANY</th><th>MASTER SKU</th><th>CATEGORY</th><th>SUB CAT</th><th>PRODUCT</th><th>COLOR</th><th>QTY</th><th>REQUIRED</th><th>GROSS</th><th>DIFF</th><th>TAX AMT</th><th>NET</th><th>COP</th><th>P/L</th><th>ACTUAL PRICE</th><th>SELLING PRICE</th><th>EST PRICE</th>';
+  h+='</tr></thead><tbody>';
+  for(var i=0;i<gArr.length;i++){
+    var g=gArr[i],dc=g.diff<0?'loss':'profit';
+    h+='<tr>';
+    h+='<td class="sticky-col" style="color:#4fc3f7;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px" onmouseover="this.style.background=\'#1e3a5f\'" onmouseout="this.style.background=\'#0d1a30\'" onclick="expandSkuGroup('+i+')">'+g.count+'</td><td>'+g.skuId+'</td><td>'+g.platform+'</td><td>'+g.company+'</td><td>'+g.sku+'</td><td>'+g.category+'</td><td>'+g.subCategory+'</td><td>'+g.product+'</td><td>'+g.color+'</td><td>'+g.qty+'</td><td>'+fmt(g.required)+'</td><td>'+fmt(g.gross)+'</td><td class="'+dc+'">'+fmt(g.diff)+'</td><td>'+fmt(g.taxAmt)+'</td><td>'+fmt(g.net)+'</td><td>'+fmt(g.cop)+'</td><td class="'+(g.pl>=0?'profit':'loss')+'">'+fmt(g.pl)+'</td><td>'+fmt(g.actualPrice)+'</td><td>'+fmt(g.sellingPrice)+'</td><td>'+fmt(g.estSellingPrice)+'</td>';
+    h+='</tr>';
+  }
+  h+='</tbody></table></div></div>';
+  document.getElementById('modalContent').innerHTML=h;
+  window._skuGroups=gArr;
+  window._allPricingRows=rows;
 }
 
 function expandSkuGroup(idx){
