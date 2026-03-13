@@ -296,6 +296,9 @@ function onDataDirect(d,cacheKey){
   _expandPricing(d.pricing);
   _expandDaily(d.daily);
   DATA=d;FILTERED_DATA=d;
+  // Set _currentDays to match the selected date filter so drill-down uses correct days param
+  var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
+  _currentDays=daysVal;
   document.getElementById('loader').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
@@ -315,21 +318,41 @@ function onData(d){
 }
 
 // ===== FILTERS =====
+var _filtersLoaded=false;
 function buildFilters(){
   var src=DATA_CACHE['all']||DATA;
   // Month filter from byMonth
   var mSel=document.getElementById('fMonth');
   if(mSel){mSel.innerHTML='<option value="">All Months</option>';(src.byMonth||[]).forEach(function(m){mSel.innerHTML+='<option value="'+m.month+'">'+m.month+'</option>';});}
-  // Other filters
-  var selIds=['fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
-  var dataKeys=['platforms','companies','masterSkus','categories','subCategories','colors','products','skus'];
-  var labels=['All Platforms','All Companies','All Master SKUs','All Categories','All SubCategories','All Colors','All Products','All SKUs'];
+  // Other filters from main API data
+  var selIds=['fPlatform','fCompany','fMasterSku','fCategory'];
+  var dataKeys=['platforms','companies','masterSkus','categories'];
+  var labels=['All Platforms','All Companies','All Master SKUs','All Categories'];
   for(var i=0;i<selIds.length;i++){
     var sel=document.getElementById(selIds[i]);
     if(!sel)continue;
     var arr=src[dataKeys[i]]||[];
     sel.innerHTML='<option value="">'+labels[i]+'</option>';
     for(var j=0;j<arr.length;j++){sel.innerHTML+='<option value="'+arr[j]+'">'+arr[j]+'</option>';}
+  }
+  // Fetch extra filter values (SubCategory, Color, Product, SKU) from lightweight endpoint
+  if(!_filtersLoaded){
+    _filtersLoaded=true;
+    fetch(API_URL+'?mode=filters',{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
+      if(!text)return;try{
+        var f=JSON.parse(text);
+        var extraIds=['fSubCategory','fColor','fProduct','fSku'];
+        var extraKeys=['subCategories','colors','products','skus'];
+        var extraLabels=['All SubCategories','All Colors','All Products','All SKUs'];
+        for(var i=0;i<extraIds.length;i++){
+          var sel=document.getElementById(extraIds[i]);
+          if(!sel)continue;
+          var arr=f[extraKeys[i]]||[];
+          sel.innerHTML='<option value="">'+extraLabels[i]+'</option>';
+          for(var j=0;j<arr.length;j++){sel.innerHTML+='<option value="'+arr[j]+'">'+arr[j]+'</option>';}
+        }
+      }catch(e){}
+    }).catch(function(){});
   }
 }
 

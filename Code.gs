@@ -1611,6 +1611,27 @@ function doGet(e) {
     var tab = 'MASTER CSV';
     var tz = Session.getScriptTimeZone();
     var now = new Date();
+    // FILTERS MODE: lightweight endpoint returning unique filter values only
+    if (e && e.parameter && e.parameter.mode === 'filters') {
+      var fColRanges = ['K2:K','P2:P','R2:R','S2:S','T2:T'];
+      var fRanges = [];
+      for (var i = 0; i < fColRanges.length; i++) fRanges.push("'" + tab + "'!" + fColRanges[i]);
+      var fRes = Sheets.Spreadsheets.Values.batchGet(ssId, {ranges: fRanges, valueRenderOption: 'UNFORMATTED_VALUE'});
+      var fVr = fRes.valueRanges;
+      var uSkus={},uSubCats={},uColors={},uProducts={};
+      for (var i = 0; i < 5; i++) {
+        var vals = (fVr[i] && fVr[i].values) || [];
+        for (var r = 0; r < vals.length; r++) {
+          var v = String(vals[r][0] || '').trim();
+          if (!v) continue;
+          if (i===0) uSkus[v]=1;
+          else if (i===1) uSubCats[v]=1;
+          else if (i===2) uColors[v]=1;
+          else if (i===3) uProducts[v]=1;
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({skus:Object.keys(uSkus).sort(),subCategories:Object.keys(uSubCats).sort(),colors:Object.keys(uColors).sort(),products:Object.keys(uProducts).sort()})).setMimeType(ContentService.MimeType.JSON);
+    }
     var rowsMode = (e && e.parameter && e.parameter.mode === 'rows');
     var daysParam = (e && e.parameter && e.parameter.days !== undefined) ? parseInt(e.parameter.days, 10) : -1;
     var filterStartStr = '', filterEndStr = '';
