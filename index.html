@@ -697,15 +697,21 @@ function openModal(type,label){
   }
   document.getElementById('modalOverlay').className='modal-overlay show';
   document.body.style.overflow='hidden';
-  // If pricing has no byPlatform breakdown (client-side date filter), skip to rows
-  if(isPricing&&(!DM.data.byPlatform||Object.keys(DM.data.byPlatform).length===0)){
-    DM.level=3;DM.platform='ALL';DM.company='ALL';
-    document.getElementById('modalTitle').textContent=label+' - SKU Summary';
-    document.getElementById('modalNav').style.display='flex';
-    document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread"><span>'+label+'</span></div>';
-    renderDrillTable();return;
-  }
   document.getElementById('modalTitle').textContent=label+' - Platform Breakdown';
+  // If pricing has no byPlatform breakdown (client-side date filter), fetch from API
+  if(isPricing&&(!DM.data.byPlatform||Object.keys(DM.data.byPlatform).length===0)){
+    document.getElementById('modalNav').style.display='none';
+    document.getElementById('modalContent').innerHTML='<div style="text-align:center;padding:40px;color:#4fc3f7">Loading breakdown...<br><small>Fetching from server</small></div>';
+    var url=API_URL+'?days='+(_currentDays||'');
+    fetch(url,{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
+      if(!text)return;try{
+        var d=JSON.parse(text);_expandPricing(d.pricing);
+        if(d.pricing&&d.pricing[type]){DM.data=d.pricing[type];FILTERED_DATA.pricing[type]=d.pricing[type];renderDrillPlatforms();}
+        else{document.getElementById('modalContent').innerHTML='<div style="color:#888;padding:20px;text-align:center">No data available</div>';}
+      }catch(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Error: '+e.message+'</div>';}
+    }).catch(function(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Fetch failed: '+e.message+'</div>';});
+    return;
+  }
   document.getElementById('modalNav').style.display='none';
   renderDrillPlatforms();
 }
