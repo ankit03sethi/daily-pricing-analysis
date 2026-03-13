@@ -80,8 +80,8 @@ tr:hover td{background:#1f2b47}
 .drill-item{background:#0d1a30;border-radius:10px;padding:14px;text-align:center;border-left:4px solid #4fc3f7;cursor:pointer;transition:.2s}
 .drill-item:hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(79,195,247,.3);border-left-color:#39ff14}
 .drill-item .di-name{font-size:12px;color:#eee;font-weight:600;margin-bottom:4px}
-.drill-item .di-count{font-size:22px;font-weight:700;color:#39ff14}
-.drill-item .di-amt{font-size:11px;margin-top:2px}
+.drill-item .di-count{font-size:16px;font-weight:600;color:#39ff14}
+.drill-item .di-amt{font-size:20px;font-weight:700;margin-top:4px}
 .drill-item.all-item{border-left-color:#e09f3e;background:#1a1a0d}
 .drill-item.all-item:hover{border-left-color:#39ff14}
 .drill-item.all-item .di-name{color:#e09f3e}
@@ -250,7 +250,7 @@ var ACTIVE_TAB='overview';
 var DATA_CACHE={}; // cache API responses by days value
 
 function fmt(n){if(n==null||isNaN(n))return '0';return Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});}
-function fmtCur(n){return '₹'+fmt(n);}
+function fmtCur(n){return fmt(n);}
 function fmtPct(n){return (n||0).toFixed(1)+'%';}
 
 // ===== EXPAND SHORT KEYS from API pricing rows & dailyDetail =====
@@ -758,12 +758,12 @@ function renderDrillPlatforms(){
     var p=DM.data;
     var pColor=DM.type==='short'?'#dc2f02':(DM.type==='excess'?'#39ff14':'#e09f3e');
     var pSign=DM.type==='short'?'-':(DM.type==='excess'?'+':'');
-    h+='<div class="drill-item all-item" onclick="drillToPlatform(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmt(p.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(p.totalDiff))+'</div></div>';
+    h+='<div class="drill-item all-item" onclick="drillToPlatform(\'\')"><div class="di-name">ALL</div><div class="di-count" style="color:'+pColor+'">'+fmt(p.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(p.totalDiff))+'</div></div>';
     var plats=Object.keys(p.byPlatform).sort(function(a,b){return p.byPlatform[b].count-p.byPlatform[a].count;});
     for(var i=0;i<plats.length;i++){
       var pp=p.byPlatform[plats[i]];
       h+='<div class="drill-item" style="border-left-color:'+DM_COLORS[i%DM_COLORS.length]+'" onclick="drillToPlatform(\''+plats[i].replace(/'/g,"\\'")+'\')">';
-      h+='<div class="di-name">'+plats[i]+'</div><div class="di-count">'+fmt(pp.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(pp.diff))+'</div></div>';
+      h+='<div class="di-name">'+plats[i]+'</div><div class="di-count" style="color:'+pColor+'">'+fmt(pp.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(pp.diff))+'</div></div>';
     }
   } else {
     var totalVal=0;for(var k in bp)totalVal+=getMetricVal(bp[k],DM.type);
@@ -801,12 +801,12 @@ function renderDrillCompanies(){
       companies=p.byPlatform[DM.platform]?p.byPlatform[DM.platform].byCompany:{};
     }
     var totalCount=0,totalDiff=0;for(var cc in companies){totalCount+=companies[cc].count;totalDiff+=companies[cc].diff;}
-    h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmt(totalCount)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(totalDiff))+'</div></div>';
+    h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count" style="color:'+pColor+'">'+fmt(totalCount)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(totalDiff))+'</div></div>';
     var comps=Object.keys(companies).sort(function(a,b){return companies[b].count-companies[a].count;});
     for(var i=0;i<comps.length;i++){
       var co=companies[comps[i]];
       h+='<div class="drill-item" style="border-left-color:'+DM_COLORS[i%DM_COLORS.length]+'" onclick="drillToCompany(\''+comps[i].replace(/'/g,"\\'")+'\')">';
-      h+='<div class="di-name">'+comps[i]+'</div><div class="di-count">'+fmt(co.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(co.diff))+'</div></div>';
+      h+='<div class="di-name">'+comps[i]+'</div><div class="di-count" style="color:'+pColor+'">'+fmt(co.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(co.diff))+'</div></div>';
     }
     DM.companies=companies;
   } else {
