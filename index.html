@@ -127,17 +127,22 @@ tr:hover td{background:#1f2b47}
     <option value="30">Last 30 Days</option>
     <option value="60">Last 60 Days</option>
   </select>
+  <select id="fMonth" onchange="applyAllFilters()"><option value="">All Months</option></select>
   <select id="fPlatform" onchange="applyAllFilters()"><option value="">All Platforms</option></select>
   <select id="fCompany" onchange="applyAllFilters()"><option value="">All Companies</option></select>
   <select id="fMasterSku" onchange="applyAllFilters()"><option value="">All Master SKUs</option></select>
   <select id="fCategory" onchange="applyAllFilters()"><option value="">All Categories</option></select>
+  <select id="fSubCategory" onchange="applyAllFilters()"><option value="">All SubCategories</option></select>
+  <select id="fColor" onchange="applyAllFilters()"><option value="">All Colors</option></select>
+  <select id="fProduct" onchange="applyAllFilters()"><option value="">All Products</option></select>
+  <select id="fSku" onchange="applyAllFilters()"><option value="">All SKU IDs</option></select>
   <button class="fbtn clr" onclick="clearAllFilters()">Clear</button>
   <button class="fbtn ref" onclick="forceRefresh()">Refresh</button>
   <button class="fbtn dl" onclick="downloadCSV()">Download CSV</button>
 </div>
 </div>
 
-<!-- OVERVIEW TAB -->
+<!-- 4 OVERVIEW CHARTS -->
 <div id="tab-overview">
 <div class="chs">
   <div class="chb"><h3>Revenue vs Net Received (Monthly)</h3><canvas id="chRevenue"></canvas></div>
@@ -149,76 +154,18 @@ tr:hover td{background:#1f2b47}
 </div>
 </div>
 
-<!-- PLATFORM TAB -->
-<div id="tab-platform">
-<div class="section-title">PLATFORM WISE BREAKDOWN</div>
-<div class="cards" id="platCards"></div>
-<div class="chs">
-  <div class="chb"><h3>Orders by Platform</h3><canvas id="chPlatOrders"></canvas></div>
-  <div class="chb"><h3>Margin % by Platform</h3><canvas id="chPlatMargin"></canvas></div>
-</div>
+<!-- DATA TABLE -->
 <div class="tbox">
   <h3>Platform Details</h3>
   <div class="twrap"><table id="platTable"></table></div>
 </div>
-</div>
-
-<!-- COMPANY TAB -->
-<div id="tab-company">
-<div class="section-title">COMPANY WISE BREAKDOWN</div>
-<div class="cards" id="compCards"></div>
 <div class="tbox">
   <h3>Company Details</h3>
   <div class="twrap"><table id="compTable"></table></div>
 </div>
-</div>
-
-<!-- MONTHLY TAB -->
-<div id="tab-monthly">
-<div class="section-title">MONTHLY TRENDS</div>
-<div class="chs full-w">
-  <div class="chb"><h3>Monthly Revenue & Cost Trend</h3><canvas id="chMonthFull"></canvas></div>
-</div>
-<div class="tbox">
-  <h3>Monthly Breakdown</h3>
-  <div class="twrap"><table id="monthTable"></table></div>
-</div>
-</div>
-
-<!-- DAILY TAB -->
-<div id="tab-daily">
-<div class="section-title">DAILY TRENDS (LAST 60 DAYS)</div>
-<div class="chs full-w">
-  <div class="chb"><h3>Daily Revenue</h3><canvas id="chDailyRev"></canvas></div>
-</div>
-<div class="chs full-w">
-  <div class="chb"><h3>Daily Orders</h3><canvas id="chDailyOrd"></canvas></div>
-</div>
-</div>
-
-<!-- TOP SKU TAB -->
-<div id="tab-topsku">
-<div class="section-title">TOP 20 SKUs BY REVENUE</div>
-<div class="chs full-w">
-  <div class="chb"><h3>Top SKUs Revenue</h3><canvas id="chTopSku"></canvas></div>
-</div>
-<div class="tbox">
-  <h3>Top SKU Details</h3>
-  <div class="twrap"><table id="skuTable"></table></div>
-</div>
-</div>
-
-<!-- CATEGORY TAB -->
-<div id="tab-category">
-<div class="section-title">CATEGORY BREAKDOWN</div>
-<div class="chs">
-  <div class="chb"><h3>Revenue by Category</h3><canvas id="chCatRev"></canvas></div>
-  <div class="chb"><h3>P/L by Category</h3><canvas id="chCatPL"></canvas></div>
-</div>
 <div class="tbox">
   <h3>Category Details</h3>
   <div class="twrap"><table id="catTable"></table></div>
-</div>
 </div>
 
 <div class="ft" id="lastUp"></div>
@@ -340,9 +287,13 @@ DATA=d;FILTERED_DATA=d;
 // ===== FILTERS =====
 function buildFilters(){
   var src=DATA_CACHE['all']||DATA;
-  var selIds=['fPlatform','fCompany','fMasterSku','fCategory'];
-  var dataKeys=['platforms','companies','masterSkus','categories'];
-  var labels=['All Platforms','All Companies','All Master SKUs','All Categories'];
+  // Month filter from byMonth
+  var mSel=document.getElementById('fMonth');
+  if(mSel){mSel.innerHTML='<option value="">All Months</option>';(src.byMonth||[]).forEach(function(m){mSel.innerHTML+='<option value="'+m.month+'">'+m.month+'</option>';});}
+  // Other filters
+  var selIds=['fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
+  var dataKeys=['platforms','companies','masterSkus','categories','subCategories','colors','products','skuIds'];
+  var labels=['All Platforms','All Companies','All Master SKUs','All Categories','All SubCategories','All Colors','All Products','All SKU IDs'];
   for(var i=0;i<selIds.length;i++){
     var sel=document.getElementById(selIds[i]);
     if(!sel)continue;
@@ -404,9 +355,11 @@ function applyAllFilters(){
   var fc=document.getElementById('fCompany').value;
   var fms=document.getElementById('fMasterSku').value;
   var fcat=document.getElementById('fCategory').value;
-  if(!fp&&!fc&&!fms&&!fcat){FILTERED_DATA=DATA;renderAll();return;}
+  var fm=document.getElementById('fMonth').value;
+  if(!fp&&!fc&&!fms&&!fcat&&!fm){FILTERED_DATA=DATA;renderAll();return;}
   // Filter byPlatform
-  var fd={summary:{totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0},byPlatform:{},byCompany:{},byMonth:DATA.byMonth||[],byCategory:{},daily:DATA.daily||[],topSkus:DATA.topSkus,platforms:DATA.platforms,companies:DATA.companies,pricing:DATA.pricing,timestamp:DATA.timestamp};
+  var filtByMonth=[];if(fm){(DATA.byMonth||[]).forEach(function(m){if(m.month===fm)filtByMonth.push(m);});}else{filtByMonth=DATA.byMonth||[];}
+  var fd={summary:{totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0},byPlatform:{},byCompany:{},byMonth:filtByMonth,byCategory:{},daily:DATA.daily||[],topSkus:DATA.topSkus,platforms:DATA.platforms,companies:DATA.companies,pricing:DATA.pricing,timestamp:DATA.timestamp};
   // Filter byPlatform
   for(var k in DATA.byPlatform){
     if(fp&&k!==fp)continue;
@@ -430,7 +383,7 @@ function applyAllFilters(){
 }
 
 function clearAllFilters(){
-  var selIds=['fPlatform','fCompany','fMasterSku','fCategory'];
+  var selIds=['fMonth','fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
   for(var i=0;i<selIds.length;i++){var s=document.getElementById(selIds[i]);if(s)s.value='';}
   FILTERED_DATA=DATA;renderAll();
 }
@@ -442,9 +395,6 @@ function renderAll(){
   renderOverview();
   renderPlatform();
   renderCompany();
-  renderMonthly();
-  renderDaily();
-  renderTopSku();
   renderCategory();
 }
 
@@ -680,7 +630,9 @@ function openModal(type,label){
   DM={type:type,label:label,level:1,platform:'',company:'',data:null,companies:null};
   var isPricing=(type==='short'||type==='excess'||type==='equal');
   if(isPricing){
-    DM.data=FILTERED_DATA.pricing?FILTERED_DATA.pricing[type]:null;
+    // Always use all-time pricing data (has byPlatform breakdown)
+    var allPricing=DATA_CACHE['all']?DATA_CACHE['all'].pricing:FILTERED_DATA.pricing;
+    DM.data=allPricing?allPricing[type]:null;
     if(!DM.data)return;
   } else {
     DM.data=FILTERED_DATA;
@@ -688,20 +640,6 @@ function openModal(type,label){
   document.getElementById('modalOverlay').className='modal-overlay show';
   document.body.style.overflow='hidden';
   document.getElementById('modalTitle').textContent=label+' - Platform Breakdown';
-  // If pricing has no byPlatform breakdown (client-side date filter), fetch from API
-  if(isPricing&&(!DM.data.byPlatform||Object.keys(DM.data.byPlatform).length===0)){
-    document.getElementById('modalNav').style.display='none';
-    document.getElementById('modalContent').innerHTML='<div style="text-align:center;padding:40px;color:#4fc3f7">Loading breakdown...<br><small>Fetching from server</small></div>';
-    var url=API_URL+'?days='+(_currentDays||'');
-    fetch(url,{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
-      if(!text)return;try{
-        var d=JSON.parse(text);_expandPricing(d.pricing);
-        if(d.pricing&&d.pricing[type]){DM.data=d.pricing[type];FILTERED_DATA.pricing[type]=d.pricing[type];renderDrillPlatforms();}
-        else{document.getElementById('modalContent').innerHTML='<div style="color:#888;padding:20px;text-align:center">No data available</div>';}
-      }catch(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Error: '+e.message+'</div>';}
-    }).catch(function(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Fetch failed: '+e.message+'</div>';});
-    return;
-  }
   document.getElementById('modalNav').style.display='none';
   renderDrillPlatforms();
 }
