@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Pricing Analysis</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',sans-serif;background:#1a1a2e;color:#eee;padding:12px;min-height:100vh;overflow-x:hidden}
@@ -25,7 +24,6 @@ h1{text-align:center;color:#39ff14;font-size:20px;letter-spacing:1px}
 .cd .change{font-size:11px;margin-top:2px}
 .cd .change.up{color:#39ff14}.cd .change.down{color:#dc2f02}
 .fbox{background:#0d1a30;border-radius:10px;padding:12px;margin-bottom:12px}
-.fbox h3{color:#4fc3f7;font-size:12px;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
 .frow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .frow select,.frow input{background:#0a0f1e;color:#eee;border:1px solid #444;border-radius:6px;padding:5px 8px;font-size:11px;min-width:110px}
 .frow select:focus,.frow input:focus{border-color:#4fc3f7;outline:none}
@@ -34,10 +32,6 @@ h1{text-align:center;color:#39ff14;font-size:20px;letter-spacing:1px}
 .fbtn.clr{background:#dc2f02}.fbtn.clr:hover{background:#b02602}
 .fbtn.ref{background:#e09f3e}.fbtn.ref:hover{background:#c88a2e}
 .fbtn.dl{background:#4fc3f7;color:#1a1a2e}.fbtn.dl:hover{background:#3ab0e0}
-.chs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.chb{background:#0d1a30;border-radius:10px;padding:12px}
-.chb h3{color:#4fc3f7;font-size:11px;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
-.chb canvas{max-height:260px}
 .tbox{background:#0d1a30;border-radius:10px;padding:12px;margin-bottom:12px}
 .tbox h3{color:#4fc3f7;font-size:12px;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
 .tbox h3 span{color:#888;font-size:11px;font-weight:400}
@@ -58,8 +52,7 @@ tr:hover td{background:#1f2b47}
 .ft{text-align:center;color:#555;font-size:10px;margin-top:8px}
 .home-btn{background:none;border:none;cursor:pointer;padding:4px;position:absolute;left:0;top:50%;transform:translateY(-50%);display:flex;align-items:center}
 .home-btn svg{width:28px;height:28px;fill:none;stroke:#39ff14}
-.full-w{grid-template-columns:1fr}
-/* Modal styles matching SKU Wise */
+/* Modal styles */
 .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:100;overflow-y:auto;padding:20px}
 .modal-overlay.show{display:block}
 .modal-box{background:#111827;border:1px solid #444;border-radius:12px;max-width:1200px;margin:0 auto;padding:20px;position:relative;min-height:300px;overflow-x:auto}
@@ -81,7 +74,16 @@ tr:hover td{background:#1f2b47}
 .drill-item.all-item{border-left-color:#e09f3e;background:#1a1a0d}
 .drill-item.all-item:hover{border-left-color:#39ff14}
 .drill-item.all-item .di-name{color:#e09f3e}
-@media(max-width:768px){.chs{grid-template-columns:1fr}.cards{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}}
+/* Overview card sections */
+.ov-heading{color:#e09f3e;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px 4px}
+.ov-card{background:#0d1a30;border-radius:10px;padding:10px 12px;border-left:4px solid #4fc3f7;transition:.2s;cursor:pointer}
+.ov-card:hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(79,195,247,.3);border-left-color:#39ff14}
+.ov-card.active{border-left-color:#39ff14;box-shadow:0 0 12px rgba(57,255,20,.3)}
+.ov-card .ov-name{font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-card .ov-row{display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-top:2px}
+.ov-card .ov-row .ov-val{font-weight:600;color:#fff}
+.ov-detail{margin-bottom:14px}
+@media(max-width:768px){.cards{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}}
 </style>
 </head>
 <body>
@@ -115,7 +117,7 @@ tr:hover td{background:#1f2b47}
 </div>
 </div>
 
-<!-- FILTERS -->
+<!-- DATE RANGE + REFRESH + DOWNLOAD -->
 <div class="fbox">
 <div class="frow" style="flex-wrap:wrap;gap:6px">
   <select id="fDateRange" onchange="applyDateFilter()" style="background:#0a1628;color:#39ff14;border:1px solid #39ff14;border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">
@@ -127,77 +129,55 @@ tr:hover td{background:#1f2b47}
     <option value="30">Last 30 Days</option>
     <option value="60">Last 60 Days</option>
   </select>
-  <select id="fMonth" onchange="applyAllFilters()"><option value="">All Months</option></select>
-  <select id="fPlatform" onchange="applyAllFilters()"><option value="">All Platforms</option></select>
-  <select id="fCompany" onchange="applyAllFilters()"><option value="">All Companies</option></select>
-  <select id="fMasterSku" onchange="applyAllFilters()"><option value="">All Master SKUs</option></select>
-  <select id="fCategory" onchange="applyAllFilters()"><option value="">All Categories</option></select>
-  <select id="fSubCategory" onchange="applyAllFilters()"><option value="">All SubCategories</option></select>
-  <select id="fColor" onchange="applyAllFilters()"><option value="">All Colors</option></select>
-  <select id="fProduct" onchange="applyAllFilters()"><option value="">All Products</option></select>
-  <select id="fSku" onchange="applyAllFilters()"><option value="">All SKUs</option></select>
-  <button class="fbtn clr" onclick="clearAllFilters()">Clear</button>
   <button class="fbtn ref" onclick="forceRefresh()">Refresh</button>
   <button class="fbtn dl" onclick="downloadCSV()">Download CSV</button>
 </div>
 </div>
 
-<!-- 4 OVERVIEW CHARTS -->
-<div id="tab-overview">
-<div class="chs">
-  <div class="chb"><h3>Revenue vs Net Received (Monthly)</h3><canvas id="chRevenue"></canvas></div>
-  <div class="chb"><h3>P/L Trend (Monthly)</h3><canvas id="chPL"></canvas></div>
-</div>
-<div class="chs">
-  <div class="chb"><h3>Revenue by Platform</h3><canvas id="chPlatRevenue"></canvas></div>
-  <div class="chb"><h3>P/L by Platform</h3><canvas id="chPlatPL"></canvas></div>
-</div>
-</div>
+<!-- OVERVIEW SECTION -->
+<div class="section-title" style="color:#e09f3e;font-size:13px;margin-top:8px">OVERVIEW</div>
 
-<!-- DATA TABLE -->
-<div class="tbox">
-  <h3>Platform Details</h3>
-  <div class="twrap"><table id="platTable"></table></div>
-</div>
-<div class="tbox">
-  <h3>Company Details</h3>
-  <div class="twrap"><table id="compTable"></table></div>
-</div>
-<div class="tbox">
-  <h3>Category Details</h3>
-  <div class="twrap"><table id="catTable"></table></div>
-</div>
+<div class="ov-heading">MONTH</div>
+<div class="cards" id="monthCards"></div>
+<div class="ov-detail" id="monthDetail"></div>
+
+<div class="ov-heading">PLATFORM</div>
+<div class="cards" id="platformCards"></div>
+<div class="ov-detail" id="platformDetail"></div>
+
+<div class="ov-heading">COMPANY</div>
+<div class="cards" id="companyCards"></div>
+<div class="ov-detail" id="companyDetail"></div>
+
+<div class="ov-heading">CATEGORY</div>
+<div class="cards" id="categoryCards"></div>
+<div class="ov-detail" id="categoryDetail"></div>
 
 <div class="ft" id="lastUp"></div>
 </div>
 
 <script>
-// ===== REPLACE THIS WITH YOUR DEPLOYED WEB APP URL =====
 var API_URL='https://script.google.com/macros/s/AKfycbyS-5CAkBpUb_gcrc0jIcXyqjcZO5yqWOSdyWcv0pFXAMYN6zE6xQ1RQNagiWS_Q2X3nQ/exec';
 
 var DATA={},FILTERED_DATA={};
-var CHS={};
-var ACTIVE_TAB='overview';
-var DATA_CACHE={}; // cache API responses by days value
-var _activeController=null; // global AbortController to cancel pending fetches
-var _renderTimer=null; // debounce timer for renderAll
+var DATA_CACHE={};
+var _activeController=null;
+var _renderTimer=null;
 
 function fmt(n){if(n==null||isNaN(n))return '0';return Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});}
 function fmtCur(n){return fmt(n);}
 function fmtPct(n){return (n||0).toFixed(1)+'%';}
 
-// ===== EXPAND SHORT KEYS from API pricing rows & dailyDetail =====
+// ===== EXPAND SHORT KEYS =====
 var _SKM={u:'unique',oi:'orderId',ti:'trackingId',ci:'companyId',si:'skuId',so:'subOrderId',q:'qty',cr:'courier',sk:'sku',sc:'singleCombo',ca:'category',sb:'subCategory',co:'color',pr:'product',rq:'required',gr:'gross',tp:'taxPct',ta:'taxAmt',n:'net',cp:'cop',p:'pl',ap:'actualPrice',sp:'sellingPrice',ep:'estSellingPrice',d:'diff',dt:'date',pf:'platform',cm:'company'};
 var _DDM={dt:'date',pf:'platform',cm:'company',o:'orders',q:'qty',g:'gross',n:'net',t:'tax',c:'cop',p:'pl'};
 function _expandRow(r){if(r.unique!==undefined)return r;var o={};for(var k in r){o[_SKM[k]||k]=r[k];}return o;}
 function _expandPricing(pr){if(!pr)return;for(var pt in pr){if(!pr[pt].byPlatform)continue;for(var pp in pr[pt].byPlatform){for(var pc in pr[pt].byPlatform[pp].byCompany){var c=pr[pt].byPlatform[pp].byCompany[pc];if(c.rows&&c.rows.length>0&&c.rows[0].unique===undefined){for(var i=0;i<c.rows.length;i++){c.rows[i]=_expandRow(c.rows[i]);}}}}}}
-function _expandDailyDetail(dd){if(!dd||!dd.length||dd[0].date!==undefined)return dd;var out=[];for(var i=0;i<dd.length;i++){var r=dd[i],o={};for(var k in r){o[_DDM[k]||k]=r[k];}out.push(o);}return out;}
 function _expandDaily(arr){if(!arr||!arr.length)return arr;if(arr[0].date!==undefined)return arr;for(var i=0;i<arr.length;i++){var e=arr[i];if(e.d!==undefined&&e.date===undefined){e.date=e.d;e.orders=e.o||0;e.qty=e.q||0;e.gross=e.g||0;e.net=e.n||0;e.tax=e.t||0;e.cop=e.c||0;e.pl=e.p||0;}}return arr;}
 
 // ===== LOAD DATA =====
 var _refreshing=false;
 function loadData(){
-  // Default filter is Yesterday (days=1) — fetch with ?days=1 for correct breakdowns
   var defaultDays=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'1';
   var fetchUrl=defaultDays?API_URL+'?days='+defaultDays:API_URL;
   var cacheKey=defaultDays?'_bg_'+defaultDays:'all';
@@ -221,14 +201,13 @@ function loadData(){
     .catch(function(e){clearTimeout(tid);onErr((e.name==='AbortError'?'Timeout (180s).':'Fetch failed: '+e.message));});
 }
 
-// ===== SILENT AUTO-REFRESH (every 1 min, soft — skips if modal open or already refreshing) =====
+// ===== AUTO-REFRESH (every 1 min, soft) =====
 var _autoRefreshTimer=null;
 function startAutoRefresh(){
   if(_autoRefreshTimer)return;
-  _autoRefreshTimer=setInterval(silentRefresh,60000); // every 1 minute
+  _autoRefreshTimer=setInterval(silentRefresh,60000);
 }
 function silentRefresh(){
-  // Soft refresh: skip if already refreshing or if drill-down modal is open
   if(_refreshing)return;
   var modal=document.getElementById('modalOverlay');
   if(modal&&modal.classList.contains('show'))return;
@@ -260,23 +239,20 @@ function silentRefresh(){
     .catch(function(e){clearTimeout(tid);_refreshing=false;});
 }
 
-// Force refresh (clears cache for current view, re-fetches with current days param)
+// Force refresh
 function forceRefresh(){
   if(_refreshing)return;
   _refreshing=true;
   var btn=document.querySelector('.fbtn.ref');
   if(btn){btn.textContent='Refreshing...';btn.style.opacity='0.6';}
   function resetBtn(){_refreshing=false;if(btn){btn.textContent='Refresh';btn.style.opacity='1';}}
-  // Use current days param so we only fetch the selected date range (not all 120K+ rows)
   var daysVal=_currentDays;
   var fetchUrl=daysVal?API_URL+'?days='+daysVal+'&nocache=1':API_URL+'?nocache=1';
   var cacheKey=daysVal?'_bg_'+daysVal:'all';
-  // Clear only the current cache key so it re-fetches
   delete DATA_CACHE[cacheKey];
   if(_activeController){try{_activeController.abort();}catch(e){}}
   var controller=new AbortController();
   _activeController=controller;
-  // Hard 60s timeout — always resets button
   var tid=setTimeout(function(){try{controller.abort();}catch(e){}resetBtn();},60000);
   fetch(fetchUrl,{redirect:'follow',signal:controller.signal})
     .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
@@ -291,7 +267,7 @@ function forceRefresh(){
         _expandDaily(d.daily);
         DATA_CACHE[cacheKey]=d;
         DATA=d;FILTERED_DATA=d;renderAllDebounced();
-        document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
+        document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data: '+(d.timestamp||'');
       }catch(e){}
     })
     .catch(function(e){clearTimeout(tid);resetBtn();});
@@ -299,106 +275,40 @@ function forceRefresh(){
 
 function onErr(msg){document.getElementById('loader').innerHTML='<div style="color:#dc2f02;font-size:14px">'+msg+'</div><br><a href="'+API_URL+'" target="_blank" style="color:#4fc3f7">Test API directly</a>';}
 
-// onDataDirect: use server-returned data directly (already date-filtered by server)
 function onDataDirect(d,cacheKey){
   if(d.error){onErr(d.error);return;}
   _expandPricing(d.pricing);
   _expandDaily(d.daily);
   DATA=d;FILTERED_DATA=d;
-  // Set _currentDays to match the selected date filter so drill-down uses correct days param
   var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
   _currentDays=daysVal;
   document.getElementById('loader').style.display='none';
   document.getElementById('app').style.display='block';
-  document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
-  buildFilters();
+  document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data: '+(d.timestamp||'');
   renderAll();
 }
-function onData(d){
-  if(d.error){onErr(d.error);return;}
-  _expandPricing(d.pricing);
-  _expandDaily(d.daily);
-  DATA=d;FILTERED_DATA=d;
-  document.getElementById('loader').style.display='none';
-  document.getElementById('app').style.display='block';
-  document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
-  buildFilters();
-  applyDateFilter();
-}
 
-// ===== FILTERS =====
-var _filtersLoaded=false;
-function buildFilters(){
-  var src=DATA_CACHE['all']||DATA;
-  // Month filter from byMonth
-  var mSel=document.getElementById('fMonth');
-  if(mSel){mSel.innerHTML='<option value="">All Months</option>';(src.byMonth||[]).forEach(function(m){mSel.innerHTML+='<option value="'+m.month+'">'+m.month+'</option>';});}
-  // Other filters from main API data
-  var selIds=['fPlatform','fCompany','fMasterSku','fCategory'];
-  var dataKeys=['platforms','companies','masterSkus','categories'];
-  var labels=['All Platforms','All Companies','All Master SKUs','All Categories'];
-  for(var i=0;i<selIds.length;i++){
-    var sel=document.getElementById(selIds[i]);
-    if(!sel)continue;
-    var arr=src[dataKeys[i]]||[];
-    sel.innerHTML='<option value="">'+labels[i]+'</option>';
-    for(var j=0;j<arr.length;j++){sel.innerHTML+='<option value="'+arr[j]+'">'+arr[j]+'</option>';}
-  }
-  // Extra filters (SubCategory, Color, Product, SKU) load on-demand when clicked
-  if(!_filtersLoaded){
-    _filtersLoaded=true;
-    var extraSelIds=['fSubCategory','fColor','fProduct','fSku'];
-    for(var ei=0;ei<extraSelIds.length;ei++){
-      var esel=document.getElementById(extraSelIds[ei]);
-      if(esel)esel.addEventListener('mousedown',_loadExtraFilters,{once:true});
-    }
-  }
-}
-
-// Load extra filter values on-demand (first click on any extra dropdown)
-function _loadExtraFilters(){
-  fetch(API_URL+'?mode=filters',{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
-    if(!text)return;try{
-      var f=JSON.parse(text);
-      var extraIds=['fSubCategory','fColor','fProduct','fSku'];
-      var extraKeys=['subCategories','colors','products','skus'];
-      var extraLabels=['All SubCategories','All Colors','All Products','All SKUs'];
-      for(var i=0;i<extraIds.length;i++){
-        var sel=document.getElementById(extraIds[i]);
-        if(!sel)continue;
-        var arr=f[extraKeys[i]]||[];
-        sel.innerHTML='<option value="">'+extraLabels[i]+'</option>';
-        for(var j=0;j<arr.length;j++){sel.innerHTML+='<option value="'+arr[j]+'">'+arr[j]+'</option>';}
-      }
-    }catch(e){}
-  }).catch(function(){});
-}
-
-// ===== DATE FILTER: fetches from API with ?days=X for correct drill-down data =====
+// ===== DATE FILTER =====
 var _currentDays='';
 function applyDateFilter(){
   var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
   _currentDays=daysVal;
-  // Abort any pending fetch before starting a new one
   if(_activeController){try{_activeController.abort();}catch(e){}}
-  // "All Time" — use cached all-time data directly
   if(daysVal===''){
     var src=DATA_CACHE['all'];
     if(src){_expandPricing(src.pricing);_expandDaily(src.daily);DATA=src;FILTERED_DATA=src;renderAll();return;}
-    // All-time not cached yet — fetch it
     var ctrl=new AbortController();_activeController=ctrl;
     fetch(API_URL,{redirect:'follow',signal:ctrl.signal}).then(function(r){return r.ok?r.text():null;}).then(function(text){
-      if(!text||_currentDays!=='')return;try{var d=JSON.parse(text);_expandPricing(d.pricing);_expandDaily(d.daily);DATA_CACHE['all']=d;DATA=d;FILTERED_DATA=d;buildFilters();renderAll();}catch(e){}
+      if(!text||_currentDays!=='')return;try{var d=JSON.parse(text);_expandPricing(d.pricing);_expandDaily(d.daily);DATA_CACHE['all']=d;DATA=d;FILTERED_DATA=d;renderAll();}catch(e){}
     }).catch(function(){});
     return;
   }
-  // Date-filtered: use server-fetched data with ?days=X for accurate breakdowns
   var bgKey='_bg_'+daysVal;
   if(DATA_CACHE[bgKey]){
     var bd=DATA_CACHE[bgKey];_expandPricing(bd.pricing);_expandDaily(bd.daily);
     DATA=bd;FILTERED_DATA=bd;renderAll();return;
   }
-  // Client-side instant preview from all-time data while fetching
+  // Client-side preview
   var src=DATA_CACHE['all'];
   if(src){
     var days=parseInt(daysVal,10);var now=new Date();var startStr='',endStr='';
@@ -419,7 +329,7 @@ function applyDateFilter(){
     var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,pricing:fp,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
     DATA=fd;FILTERED_DATA=fd;renderAll();
   }
-  // Fetch accurate server-filtered data (with correct byPlatform/byCompany/pricing breakdowns)
+  // Fetch accurate server data
   var ctrl2=new AbortController();_activeController=ctrl2;
   fetch(API_URL+'?days='+daysVal,{redirect:'follow',signal:ctrl2.signal}).then(function(r){return r.ok?r.text():null;}).then(function(text){
     if(!text||_currentDays!==daysVal)return;try{
@@ -430,54 +340,12 @@ function applyDateFilter(){
   }).catch(function(){});
 }
 
-function applyAllFilters(){
-  var fp=document.getElementById('fPlatform').value;
-  var fc=document.getElementById('fCompany').value;
-  var fms=document.getElementById('fMasterSku').value;
-  var fcat=document.getElementById('fCategory').value;
-  var fm=document.getElementById('fMonth').value;
-  if(!fp&&!fc&&!fms&&!fcat&&!fm){FILTERED_DATA=DATA;renderAll();return;}
-  // Filter byPlatform
-  var filtByMonth=[];if(fm){(DATA.byMonth||[]).forEach(function(m){if(m.month===fm)filtByMonth.push(m);});}else{filtByMonth=DATA.byMonth||[];}
-  var fd={summary:{totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0},byPlatform:{},byCompany:{},byMonth:filtByMonth,byCategory:{},daily:DATA.daily||[],topSkus:DATA.topSkus,platforms:DATA.platforms,companies:DATA.companies,pricing:DATA.pricing,timestamp:DATA.timestamp};
-  // Filter byPlatform
-  for(var k in DATA.byPlatform){
-    if(fp&&k!==fp)continue;
-    fd.byPlatform[k]=DATA.byPlatform[k];
-    fd.summary.totalOrders+=DATA.byPlatform[k].orders;
-    fd.summary.totalQty+=DATA.byPlatform[k].qty;
-    fd.summary.grossReceived+=DATA.byPlatform[k].gross;
-    fd.summary.netReceived+=DATA.byPlatform[k].net;
-    fd.summary.taxAmount+=DATA.byPlatform[k].tax;
-    fd.summary.cop+=DATA.byPlatform[k].cop;
-    fd.summary.pl+=DATA.byPlatform[k].pl;
-  }
-  if(fp){fd.summary.avgOrderValue=fd.summary.totalOrders>0?fd.summary.grossReceived/fd.summary.totalOrders:0;fd.summary.margin=fd.summary.grossReceived>0?(fd.summary.pl/fd.summary.grossReceived*100):0;}
-  else{fd.summary=DATA.summary;}
-  // Filter byCompany
-  for(var k in DATA.byCompany){if(fc&&k!==fc)continue;fd.byCompany[k]=DATA.byCompany[k];}
-  // Filter byCategory
-  for(var k in DATA.byCategory){if(fcat&&k!==fcat)continue;fd.byCategory[k]=DATA.byCategory[k];}
-  FILTERED_DATA=fd;
-  renderAll();
-}
-
-function clearAllFilters(){
-  var selIds=['fMonth','fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
-  for(var i=0;i<selIds.length;i++){var s=document.getElementById(selIds[i]);if(s)s.value='';}
-  FILTERED_DATA=DATA;renderAll();
-}
-
 // ===== RENDER ALL =====
 function renderAll(){
   renderSummary();
   renderPricing();
-  renderOverview();
-  renderPlatform();
-  renderCompany();
-  renderCategory();
+  renderOverviewCards();
 }
-// Debounced version — prevents rapid Chart.js destroy/recreate when multiple fetches resolve
 function renderAllDebounced(){
   if(_renderTimer)clearTimeout(_renderTimer);
   _renderTimer=setTimeout(renderAll,200);
@@ -498,155 +366,166 @@ function renderSummary(){
   html+=card('Margin',fmtPct(s.margin),s.margin>=0?'g':'r','');
   document.getElementById('summaryCards').innerHTML=html;
 }
-
 function card(label,val,cls,metric){
   var onclick=metric?(' onclick="openModal(\''+metric+'\',\''+label+'\')"'):'';
   return '<div class="cd '+cls+'"'+onclick+'><div class="lb">'+label+'</div><div class="vl">'+val+'</div></div>';
 }
 function cardPL(label,val){var cls=val>=0?'g':'r';var prefix=val>=0?'+':'';return '<div class="cd '+cls+'" onclick="openModal(\'pl\',\'Total P/L\')"><div class="lb">'+label+'</div><div class="vl '+(val>=0?'profit':'loss')+'">'+prefix+fmtCur(val)+'</div></div>';}
 
-
-// ===== OVERVIEW CHARTS =====
-function renderOverview(){
-  var months=FILTERED_DATA.byMonth||[];
-  var labels=months.map(function(m){return m.month;});
-  var grossArr=months.map(function(m){return m.gross;});
-  var netArr=months.map(function(m){return m.net;});
-  var plArr=months.map(function(m){return m.pl;});
-
-  destroyChart('chRevenue');
-  CHS.chRevenue=new Chart(document.getElementById('chRevenue'),{type:'bar',data:{labels:labels,datasets:[
-    {label:'Gross Revenue',data:grossArr,backgroundColor:'rgba(57,255,20,0.6)',borderColor:'#39ff14',borderWidth:1},
-    {label:'Net Received',data:netArr,backgroundColor:'rgba(79,195,247,0.6)',borderColor:'#4fc3f7',borderWidth:1}
-  ]},options:chartOpts()});
-
-  destroyChart('chPL');
-  CHS.chPL=new Chart(document.getElementById('chPL'),{type:'line',data:{labels:labels,datasets:[
-    {label:'P/L',data:plArr,borderColor:'#39ff14',backgroundColor:'rgba(57,255,20,0.1)',fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:plArr.map(function(v){return v>=0?'#39ff14':'#dc2f02';})}
-  ]},options:chartOpts()});
-
-  // Platform charts
-  var platKeys=Object.keys(FILTERED_DATA.byPlatform||{});
-  var platGross=platKeys.map(function(k){return FILTERED_DATA.byPlatform[k].gross;});
-  var platPL=platKeys.map(function(k){return FILTERED_DATA.byPlatform[k].pl;});
-  var colors=['#39ff14','#4fc3f7','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee'];
-
-  destroyChart('chPlatRevenue');
-  CHS.chPlatRevenue=new Chart(document.getElementById('chPlatRevenue'),{type:'doughnut',data:{labels:platKeys,datasets:[{data:platGross,backgroundColor:colors.slice(0,platKeys.length),borderColor:'#1a1a2e',borderWidth:2}]},options:{plugins:{legend:{labels:{color:'#eee',font:{size:10}}}},responsive:true,maintainAspectRatio:true}});
-
-  destroyChart('chPlatPL');
-  CHS.chPlatPL=new Chart(document.getElementById('chPlatPL'),{type:'bar',data:{labels:platKeys,datasets:[{label:'P/L',data:platPL,backgroundColor:platPL.map(function(v){return v>=0?'rgba(57,255,20,0.7)':'rgba(220,47,2,0.7)';}),borderColor:platPL.map(function(v){return v>=0?'#39ff14':'#dc2f02';}),borderWidth:1}]},options:chartOpts()});
+// ===== PRICING CARDS =====
+var PM_STATE={type:'',level:'',platform:'',company:''};
+function renderPricing(){
+  var p=FILTERED_DATA.pricing;
+  if(!p){document.getElementById('pricingCards').innerHTML='';return;}
+  var html='';
+  var netDiff=Math.abs(p.short.totalDiff)-p.excess.totalDiff;
+  var netColor=netDiff>0?'#dc2f02':'#39ff14';
+  var netSign=netDiff>0?'-':'+';
+  var netClass=netDiff>0?'r':'g';
+  html+='<div class="cd '+netClass+'"><div class="lb">NET S/E</div><div class="vl">'+(p.short.count+p.excess.count)+'</div><div class="sub-val" style="color:'+netColor+'">'+netSign+fmtCur(Math.abs(netDiff))+'</div></div>';
+  html+='<div class="cd r" onclick="openPricingModal(\'short\')" style="cursor:pointer"><div class="lb">SHORT</div><div class="vl" style="color:#dc2f02">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">-'+fmtCur(Math.abs(p.short.totalDiff))+'</div></div>';
+  html+='<div class="cd g" onclick="openPricingModal(\'excess\')" style="cursor:pointer"><div class="lb">EXCESS</div><div class="vl" style="color:#39ff14">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">+'+fmtCur(p.excess.totalDiff)+'</div></div>';
+  var eq=p.equal||{count:0,totalDiff:0};
+  html+='<div class="cd" onclick="openPricingModal(\'equal\')" style="cursor:pointer;border-left:4px solid #e09f3e"><div class="lb">EQUAL</div><div class="vl" style="color:#e09f3e">'+fmt(eq.count)+'</div><div class="sub-val" style="color:#e09f3e">Matched</div></div>';
+  document.getElementById('pricingCards').innerHTML=html;
 }
 
-// ===== PLATFORM TABLE =====
-function renderPlatform(){
+// ===== OVERVIEW CARDS (Month, Platform, Company, Category) =====
+var _activeOvCard={month:'',platform:'',company:'',category:''};
+var OV_COLORS=['#4fc3f7','#39ff14','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee','#ff9800','#8bc34a'];
+
+function renderOverviewCards(){
+  renderMonthCards();
+  renderPlatformCards();
+  renderCompanyCards();
+  renderCategoryCards();
+}
+
+function _ovCard(name,orders,gross,pl,margin,color,section,key){
+  var plClass=pl>=0?'profit':'loss';
+  var plSign=pl>=0?'+':'';
+  var mClass=margin>=0?'profit':'loss';
+  var isActive=_activeOvCard[section]===key;
+  return '<div class="ov-card'+(isActive?' active':'')+'" style="border-left-color:'+color+'" onclick="toggleOvDetail(\''+section+'\',\''+key.replace(/'/g,"\\'")+'\')">'
+    +'<div class="ov-name">'+name+'</div>'
+    +'<div class="ov-row"><span>Orders</span><span class="ov-val">'+fmt(orders)+'</span></div>'
+    +'<div class="ov-row"><span>Revenue</span><span class="ov-val">'+fmtCur(gross)+'</span></div>'
+    +'<div class="ov-row"><span>Profit</span><span class="ov-val '+plClass+'">'+plSign+fmtCur(pl)+'</span></div>'
+    +'<div class="ov-row"><span>Margin</span><span class="ov-val '+mClass+'">'+fmtPct(margin)+'</span></div>'
+    +'</div>';
+}
+
+function renderMonthCards(){
+  var months=(FILTERED_DATA.byMonth||[]).slice().sort(function(a,b){return b.gross-a.gross;});
+  var h='';
+  for(var i=0;i<months.length;i++){
+    var m=months[i];var margin=m.gross>0?(m.pl/m.gross*100):0;
+    h+=_ovCard(m.month,m.orders,m.gross,m.pl,margin,OV_COLORS[i%OV_COLORS.length],'month',m.month);
+  }
+  document.getElementById('monthCards').innerHTML=h;
+  if(_activeOvCard.month)_showOvDetail('month');
+}
+
+function renderPlatformCards(){
   var bp=FILTERED_DATA.byPlatform||{};
-  var keys=Object.keys(bp);
-  var thtml='<thead><tr><th>Platform</th><th>Orders</th><th>Qty</th><th>Gross Revenue</th><th>Net Received</th><th>Tax</th><th>COP</th><th>P/L</th><th>Margin %</th></tr></thead><tbody>';
-  keys.forEach(function(k){
-    var p=bp[k];var margin=p.gross>0?(p.pl/p.gross*100):0;
-    thtml+='<tr><td style="text-align:left;font-weight:600">'+k+'</td><td>'+fmt(p.orders)+'</td><td>'+fmt(p.qty)+'</td><td>'+fmtCur(p.gross)+'</td><td>'+fmtCur(p.net)+'</td><td>'+fmtCur(p.tax)+'</td><td>'+fmtCur(p.cop)+'</td><td class="'+(p.pl>=0?'profit':'loss')+'">'+fmtCur(p.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr>';
-  });
-  thtml+='</tbody>';
-  document.getElementById('platTable').innerHTML=thtml;
+  var keys=Object.keys(bp).sort(function(a,b){return bp[b].gross-bp[a].gross;});
+  var h='';
+  for(var i=0;i<keys.length;i++){
+    var p=bp[keys[i]];var margin=p.gross>0?(p.pl/p.gross*100):0;
+    h+=_ovCard(keys[i],p.orders,p.gross,p.pl,margin,OV_COLORS[i%OV_COLORS.length],'platform',keys[i]);
+  }
+  document.getElementById('platformCards').innerHTML=h;
+  if(_activeOvCard.platform)_showOvDetail('platform');
 }
 
-// ===== COMPANY TABLE =====
-function renderCompany(){
+function renderCompanyCards(){
   var bc=FILTERED_DATA.byCompany||{};
   var keys=Object.keys(bc).sort(function(a,b){return bc[b].gross-bc[a].gross;});
-  var thtml='<thead><tr><th>Company</th><th>Orders</th><th>Qty</th><th>Gross Revenue</th><th>Net Received</th><th>Tax</th><th>COP</th><th>P/L</th><th>Margin %</th></tr></thead><tbody>';
-  keys.forEach(function(k){
-    var c=bc[k];var margin=c.gross>0?(c.pl/c.gross*100):0;
-    thtml+='<tr><td style="text-align:left;font-weight:600">'+k+'</td><td>'+fmt(c.orders)+'</td><td>'+fmt(c.qty)+'</td><td>'+fmtCur(c.gross)+'</td><td>'+fmtCur(c.net)+'</td><td>'+fmtCur(c.tax)+'</td><td>'+fmtCur(c.cop)+'</td><td class="'+(c.pl>=0?'profit':'loss')+'">'+fmtCur(c.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr>';
-  });
-  thtml+='</tbody>';
-  document.getElementById('compTable').innerHTML=thtml;
+  var h='';
+  for(var i=0;i<keys.length;i++){
+    var c=bc[keys[i]];var margin=c.gross>0?(c.pl/c.gross*100):0;
+    h+=_ovCard(keys[i],c.orders,c.gross,c.pl,margin,OV_COLORS[i%OV_COLORS.length],'company',keys[i]);
+  }
+  document.getElementById('companyCards').innerHTML=h;
+  if(_activeOvCard.company)_showOvDetail('company');
 }
 
-// ===== MONTHLY TAB =====
-function renderMonthly(){
-  var months=FILTERED_DATA.byMonth||[];
-  var labels=months.map(function(m){return m.month;});
-
-  destroyChart('chMonthFull');
-  CHS.chMonthFull=new Chart(document.getElementById('chMonthFull'),{type:'bar',data:{labels:labels,datasets:[
-    {label:'Gross Revenue',data:months.map(function(m){return m.gross;}),backgroundColor:'rgba(57,255,20,0.5)',borderColor:'#39ff14',borderWidth:1,order:2},
-    {label:'COP',data:months.map(function(m){return m.cop;}),backgroundColor:'rgba(248,37,133,0.5)',borderColor:'#f72585',borderWidth:1,order:2},
-    {label:'P/L',data:months.map(function(m){return m.pl;}),type:'line',borderColor:'#4fc3f7',backgroundColor:'rgba(79,195,247,0.1)',fill:false,tension:0.3,pointRadius:4,pointBackgroundColor:'#4fc3f7',order:1}
-  ]},options:chartOpts()});
-
-  var thtml='<thead><tr><th>Month</th><th>Orders</th><th>Qty</th><th>Gross Revenue</th><th>Net Received</th><th>Tax</th><th>COP</th><th>P/L</th><th>Margin %</th></tr></thead><tbody>';
-  months.forEach(function(m){
-    var margin=m.gross>0?(m.pl/m.gross*100):0;
-    thtml+='<tr><td style="font-weight:600">'+m.month+'</td><td>'+fmt(m.orders)+'</td><td>'+fmt(m.qty)+'</td><td>'+fmtCur(m.gross)+'</td><td>'+fmtCur(m.net)+'</td><td>'+fmtCur(m.tax)+'</td><td>'+fmtCur(m.cop)+'</td><td class="'+(m.pl>=0?'profit':'loss')+'">'+fmtCur(m.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr>';
-  });
-  thtml+='</tbody>';
-  document.getElementById('monthTable').innerHTML=thtml;
-}
-
-// ===== DAILY TAB =====
-function renderDaily(){
-  var daily=FILTERED_DATA.daily||[];
-  var labels=daily.map(function(d){return d.date;});
-
-  destroyChart('chDailyRev');
-  CHS.chDailyRev=new Chart(document.getElementById('chDailyRev'),{type:'line',data:{labels:labels,datasets:[
-    {label:'Daily Revenue',data:daily.map(function(d){return d.gross;}),borderColor:'#39ff14',backgroundColor:'rgba(57,255,20,0.1)',fill:true,tension:0.2,pointRadius:2}
-  ]},options:chartOpts()});
-
-  destroyChart('chDailyOrd');
-  CHS.chDailyOrd=new Chart(document.getElementById('chDailyOrd'),{type:'bar',data:{labels:labels,datasets:[
-    {label:'Daily Orders',data:daily.map(function(d){return d.orders;}),backgroundColor:'rgba(79,195,247,0.6)',borderColor:'#4fc3f7',borderWidth:1}
-  ]},options:chartOpts()});
-}
-
-// ===== TOP SKU TAB =====
-function renderTopSku(){
-  var skus=FILTERED_DATA.topSkus||[];
-  var labels=skus.map(function(s){return s.sku.length>20?s.sku.substring(0,20)+'...':s.sku;});
-
-  destroyChart('chTopSku');
-  CHS.chTopSku=new Chart(document.getElementById('chTopSku'),{type:'bar',data:{labels:labels,datasets:[
-    {label:'Revenue',data:skus.map(function(s){return s.gross;}),backgroundColor:'rgba(57,255,20,0.6)',borderColor:'#39ff14',borderWidth:1}
-  ]},options:{indexAxis:'y',plugins:{legend:{labels:{color:'#eee'}}},scales:{x:{ticks:{color:'#999'},grid:{color:'#333'}},y:{ticks:{color:'#eee',font:{size:9}},grid:{color:'#333'}}},responsive:true,maintainAspectRatio:true}});
-
-  var thtml='<thead><tr><th>#</th><th>SKU</th><th>Platform</th><th>Orders</th><th>Qty</th><th>Gross Revenue</th><th>Net Received</th><th>COP</th><th>P/L</th></tr></thead><tbody>';
-  skus.forEach(function(s,i){
-    thtml+='<tr><td>'+(i+1)+'</td><td style="text-align:left;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+s.sku+'</td><td>'+s.platform+'</td><td>'+fmt(s.orders)+'</td><td>'+fmt(s.qty)+'</td><td>'+fmtCur(s.gross)+'</td><td>'+fmtCur(s.net)+'</td><td>'+fmtCur(s.cop)+'</td><td class="'+(s.pl>=0?'profit':'loss')+'">'+fmtCur(s.pl)+'</td></tr>';
-  });
-  thtml+='</tbody>';
-  document.getElementById('skuTable').innerHTML=thtml;
-}
-
-// ===== CATEGORY TAB =====
-function renderCategory(){
+function renderCategoryCards(){
   var bc=FILTERED_DATA.byCategory||{};
   var keys=Object.keys(bc).sort(function(a,b){return bc[b].gross-bc[a].gross;});
-  var top10=keys.slice(0,10);
-  var colors=['#39ff14','#4fc3f7','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee','#ff9800','#8bc34a'];
-
-  destroyChart('chCatRev');
-  CHS.chCatRev=new Chart(document.getElementById('chCatRev'),{type:'doughnut',data:{labels:top10,datasets:[{data:top10.map(function(k){return bc[k].gross;}),backgroundColor:colors,borderColor:'#1a1a2e',borderWidth:2}]},options:{plugins:{legend:{labels:{color:'#eee',font:{size:9}}}},responsive:true}});
-
-  var plData=top10.map(function(k){return bc[k].pl;});
-  destroyChart('chCatPL');
-  CHS.chCatPL=new Chart(document.getElementById('chCatPL'),{type:'bar',data:{labels:top10,datasets:[{label:'P/L',data:plData,backgroundColor:plData.map(function(v){return v>=0?'rgba(57,255,20,0.7)':'rgba(220,47,2,0.7)';}),borderWidth:1}]},options:chartOpts()});
-
-  var thtml='<thead><tr><th>Category</th><th>Orders</th><th>Qty</th><th>Gross Revenue</th><th>Net Received</th><th>COP</th><th>P/L</th><th>Margin %</th></tr></thead><tbody>';
-  keys.forEach(function(k){
-    var c=bc[k];var margin=c.gross>0?(c.pl/c.gross*100):0;
-    thtml+='<tr><td style="text-align:left;font-weight:600">'+k+'</td><td>'+fmt(c.orders)+'</td><td>'+fmt(c.qty)+'</td><td>'+fmtCur(c.gross)+'</td><td>'+fmtCur(c.net)+'</td><td>'+fmtCur(c.cop)+'</td><td class="'+(c.pl>=0?'profit':'loss')+'">'+fmtCur(c.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr>';
-  });
-  thtml+='</tbody>';
-  document.getElementById('catTable').innerHTML=thtml;
+  var h='';
+  for(var i=0;i<keys.length;i++){
+    var c=bc[keys[i]];var margin=c.gross>0?(c.pl/c.gross*100):0;
+    h+=_ovCard(keys[i],c.orders,c.gross,c.pl,margin,OV_COLORS[i%OV_COLORS.length],'category',keys[i]);
+  }
+  document.getElementById('categoryCards').innerHTML=h;
+  if(_activeOvCard.category)_showOvDetail('category');
 }
 
-// ===== CHART HELPERS =====
-function chartOpts(){
-  return {plugins:{legend:{labels:{color:'#eee',font:{size:10}}}},scales:{x:{ticks:{color:'#999',font:{size:9},maxRotation:45},grid:{color:'#222'}},y:{ticks:{color:'#999',font:{size:9}},grid:{color:'#222'}}},responsive:true,maintainAspectRatio:true};
+function toggleOvDetail(section,key){
+  if(_activeOvCard[section]===key){
+    _activeOvCard[section]='';
+    document.getElementById(section+'Detail').innerHTML='';
+    // Remove active class
+    var cards=document.getElementById(section+'Cards').querySelectorAll('.ov-card');
+    for(var i=0;i<cards.length;i++)cards[i].classList.remove('active');
+    return;
+  }
+  _activeOvCard[section]=key;
+  // Update active class
+  var cards=document.getElementById(section+'Cards').querySelectorAll('.ov-card');
+  for(var i=0;i<cards.length;i++)cards[i].classList.remove('active');
+  // Find and activate the clicked card
+  for(var i=0;i<cards.length;i++){
+    if(cards[i].querySelector('.ov-name').textContent===key)cards[i].classList.add('active');
+  }
+  _showOvDetail(section);
 }
-function destroyChart(id){if(CHS[id]){CHS[id].destroy();delete CHS[id];}}
+
+function _showOvDetail(section){
+  var key=_activeOvCard[section];
+  if(!key){document.getElementById(section+'Detail').innerHTML='';return;}
+  var detailEl=document.getElementById(section+'Detail');
+
+  if(section==='month'){
+    var months=FILTERED_DATA.byMonth||[];
+    var m=null;for(var i=0;i<months.length;i++){if(months[i].month===key){m=months[i];break;}}
+    if(!m){detailEl.innerHTML='';return;}
+    var margin=m.gross>0?(m.pl/m.gross*100):0;
+    detailEl.innerHTML='<div class="tbox"><h3>'+key+' Details</h3><div class="twrap"><table><thead><tr><th>Orders</th><th>Qty</th><th>Gross</th><th>Net</th><th>Tax</th><th>COP</th><th>P/L</th><th>Margin</th></tr></thead><tbody><tr><td>'+fmt(m.orders)+'</td><td>'+fmt(m.qty)+'</td><td>'+fmtCur(m.gross)+'</td><td>'+fmtCur(m.net)+'</td><td>'+fmtCur(m.tax)+'</td><td>'+fmtCur(m.cop)+'</td><td class="'+(m.pl>=0?'profit':'loss')+'">'+fmtCur(m.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr></tbody></table></div></div>';
+    return;
+  }
+
+  if(section==='platform'){
+    var bp=FILTERED_DATA.byPlatform||{};
+    var p=bp[key];
+    if(!p){detailEl.innerHTML='';return;}
+    var margin=p.gross>0?(p.pl/p.gross*100):0;
+    var h='<div class="tbox"><h3>'+key+' Details</h3><div class="twrap"><table><thead><tr><th>Orders</th><th>Qty</th><th>Gross</th><th>Net</th><th>Tax</th><th>COP</th><th>P/L</th><th>Margin</th></tr></thead><tbody><tr><td>'+fmt(p.orders)+'</td><td>'+fmt(p.qty)+'</td><td>'+fmtCur(p.gross)+'</td><td>'+fmtCur(p.net)+'</td><td>'+fmtCur(p.tax)+'</td><td>'+fmtCur(p.cop)+'</td><td class="'+(p.pl>=0?'profit':'loss')+'">'+fmtCur(p.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr></tbody></table></div></div>';
+    detailEl.innerHTML=h;
+    return;
+  }
+
+  if(section==='company'){
+    var bc=FILTERED_DATA.byCompany||{};
+    var c=bc[key];
+    if(!c){detailEl.innerHTML='';return;}
+    var margin=c.gross>0?(c.pl/c.gross*100):0;
+    var h='<div class="tbox"><h3>'+key+' Details</h3><div class="twrap"><table><thead><tr><th>Orders</th><th>Qty</th><th>Gross</th><th>Net</th><th>Tax</th><th>COP</th><th>P/L</th><th>Margin</th></tr></thead><tbody><tr><td>'+fmt(c.orders)+'</td><td>'+fmt(c.qty)+'</td><td>'+fmtCur(c.gross)+'</td><td>'+fmtCur(c.net)+'</td><td>'+fmtCur(c.tax)+'</td><td>'+fmtCur(c.cop)+'</td><td class="'+(c.pl>=0?'profit':'loss')+'">'+fmtCur(c.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr></tbody></table></div></div>';
+    detailEl.innerHTML=h;
+    return;
+  }
+
+  if(section==='category'){
+    var bc=FILTERED_DATA.byCategory||{};
+    var c=bc[key];
+    if(!c){detailEl.innerHTML='';return;}
+    var margin=c.gross>0?(c.pl/c.gross*100):0;
+    var h='<div class="tbox"><h3>'+key+' Details</h3><div class="twrap"><table><thead><tr><th>Orders</th><th>Qty</th><th>Gross</th><th>Net</th><th>COP</th><th>P/L</th><th>Margin</th></tr></thead><tbody><tr><td>'+fmt(c.orders)+'</td><td>'+fmt(c.qty)+'</td><td>'+fmtCur(c.gross)+'</td><td>'+fmtCur(c.net)+'</td><td>'+fmtCur(c.cop)+'</td><td class="'+(c.pl>=0?'profit':'loss')+'">'+fmtCur(c.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr></tbody></table></div></div>';
+    detailEl.innerHTML=h;
+    return;
+  }
+}
 
 // ===== DOWNLOAD CSV =====
 function downloadCSV(){
@@ -663,28 +542,7 @@ function downloadCSV(){
   a.click();
 }
 
-// ===== PRICING OVERVIEW =====
-var PM_STATE={type:'',level:'',platform:'',company:''};
-
-function renderPricing(){
-  var p=FILTERED_DATA.pricing;
-  if(!p){document.getElementById('pricingCards').innerHTML='';return;}
-  var html='';
-  // NET S/E card
-  var netDiff=Math.abs(p.short.totalDiff)-p.excess.totalDiff;
-  var netColor=netDiff>0?'#dc2f02':'#39ff14';
-  var netSign=netDiff>0?'-':'+';
-  var netClass=netDiff>0?'r':'g';
-  html+='<div class="cd '+netClass+'"><div class="lb">NET S/E</div><div class="vl">'+(p.short.count+p.excess.count)+'</div><div class="sub-val" style="color:'+netColor+'">'+netSign+fmtCur(Math.abs(netDiff))+'</div></div>';
-  html+='<div class="cd r" onclick="openPricingModal(\'short\')" style="cursor:pointer"><div class="lb">SHORT</div><div class="vl" style="color:#dc2f02">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">-'+fmtCur(Math.abs(p.short.totalDiff))+'</div></div>';
-  html+='<div class="cd g" onclick="openPricingModal(\'excess\')" style="cursor:pointer"><div class="lb">EXCESS</div><div class="vl" style="color:#39ff14">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">+'+fmtCur(p.excess.totalDiff)+'</div></div>';
-  // EQUAL card (yellow/gold)
-  var eq=p.equal||{count:0,totalDiff:0};
-  html+='<div class="cd" onclick="openPricingModal(\'equal\')" style="cursor:pointer;border-left:4px solid #e09f3e"><div class="lb">EQUAL</div><div class="vl" style="color:#e09f3e">'+fmt(eq.count)+'</div><div class="sub-val" style="color:#e09f3e">Matched</div></div>';
-  document.getElementById('pricingCards').innerHTML=html;
-}
-
-// ===== UNIVERSAL DRILL-DOWN MODAL (matches SKU Wise style) =====
+// ===== DRILL-DOWN MODAL (unchanged) =====
 var DM={type:'',label:'',level:0,platform:'',company:'',data:null,companies:null};
 var DM_COLORS=['#39ff14','#4fc3f7','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee'];
 
@@ -762,6 +620,16 @@ function renderDrillPlatforms(){
 
 function drillToPlatform(plat){
   DM.level=2;DM.platform=plat||'ALL';
+  var isPricing=(DM.type==='short'||DM.type==='excess'||DM.type==='equal');
+  // For non-pricing cards with a specific platform selected, skip to table (company data not available per-platform)
+  if(!isPricing&&DM.platform!=='ALL'){
+    DM.level=3;DM.company='ALL';
+    document.getElementById('modalTitle').textContent=DM.label+' - '+DM.platform+' - Details';
+    document.getElementById('modalNav').style.display='flex';
+    document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread" id="modalBread"><span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span></div>';
+    renderDrillTable();
+    return;
+  }
   document.getElementById('modalTitle').textContent=DM.label+' - '+(DM.platform)+' - Companies';
   document.getElementById('modalNav').style.display='flex';
   document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread" id="modalBread"><span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span></div>';
@@ -791,6 +659,7 @@ function renderDrillCompanies(){
     }
     DM.companies=companies;
   } else {
+    // ALL platforms: show global company breakdown
     var bc=FILTERED_DATA.byCompany||{};
     var compMap={};
     for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
@@ -817,7 +686,6 @@ function drillToCompany(comp){
 
 function renderDrillTable(){
   var isPricing=(DM.type==='short'||DM.type==='excess'||DM.type==='equal');
-  // All card types now fetch rows on-demand
   document.getElementById('modalContent').innerHTML='<div style="text-align:center;padding:40px;color:#4fc3f7">Loading rows...<br><small>Fetching data from server</small></div>';
   var rowType=isPricing?DM.type:'all';
   var rowUrl=API_URL+'?mode=rows&type='+encodeURIComponent(rowType)+'&platform='+encodeURIComponent(DM.platform==='ALL'?'':DM.platform||'')+'&company='+encodeURIComponent(DM.company==='ALL'?'':DM.company)+(_currentDays?'&days='+_currentDays:'');
@@ -900,7 +768,6 @@ function drillDownloadCSV(){
   var blob=new Blob([csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pricing_'+DM.type+'_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
 }
 
-// Helper: get metric value from platform/company data by card type
 function getMetricVal(obj,type){
   if(!obj)return 0;
   switch(type){
@@ -919,7 +786,6 @@ function fmtMetric(val,type){
   return fmtCur(val);
 }
 
-// Legacy aliases for pricing modal
 function openPricingModal(type){var labels={short:'SHORT',excess:'EXCESS',equal:'EQUAL'};openModal(type,labels[type]||type.toUpperCase());}
 function closePricingModal(){closeModal();}
 
