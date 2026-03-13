@@ -371,40 +371,30 @@ var _currentDays='';
 function applyDateFilter(){
   var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
   _currentDays=daysVal;
+  var src=DATA_CACHE['all'];
+  if(!src)return;
   if(daysVal===''){
-    // All Time - use cached data
-    if(!DATA_CACHE['all'])return;
-    var src=DATA_CACHE['all'];
     DATA=src; FILTERED_DATA=src; renderAll(); return;
   }
-  // Check cache for this days value
-  if(DATA_CACHE['days_'+daysVal]){
-    var src=DATA_CACHE['days_'+daysVal];
-    DATA=src; FILTERED_DATA=src; renderAll(); return;
-  }
-  // Fetch from API with days parameter (server filters everything including pricing)
-  document.getElementById('loader').style.display='block';
-  document.getElementById('app').style.display='none';
-  var url=API_URL+'?days='+daysVal;
-  var controller=new AbortController();
-  var tid=setTimeout(function(){controller.abort();},120000);
-  fetch(url,{redirect:'follow',signal:controller.signal})
-    .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
-    .then(function(text){
-      if(!text||text.trim().length===0){onErr('Empty response.');return;}
-      if(text.trim().charAt(0)==='<'){onErr('API returned HTML.');return;}
-      try{
-        var d=JSON.parse(text);
-        _expandPricing(d.pricing);
-        _expandDaily(d.daily);
-        DATA_CACHE['days_'+daysVal]=d;
-        DATA=d; FILTERED_DATA=d;
-        document.getElementById('loader').style.display='none';
-        document.getElementById('app').style.display='block';
-        renderAll();
-      }catch(e){onErr('JSON parse error: '+e.message);}
-    })
-    .catch(function(e){clearTimeout(tid);onErr(e.name==='AbortError'?'Timeout':'Fetch failed: '+e.message);});
+  // Client-side date filtering from cached all-time data
+  var days=parseInt(daysVal,10);
+  var cutoff=new Date();cutoff.setDate(cutoff.getDate()-days);
+  var cutStr=cutoff.toISOString().slice(0,10);
+  // Filter daily entries
+  var allDaily=src.daily||[];
+  var filtDaily=[];
+  for(var i=0;i<allDaily.length;i++){if((allDaily[i].date||allDaily[i].d||'')>=cutStr)filtDaily.push(allDaily[i]);}
+  // Recompute summary from filtered daily
+  var sm={totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0};
+  for(var i=0;i<filtDaily.length;i++){var dd=filtDaily[i];sm.totalOrders+=(dd.orders||dd.o||0);sm.totalQty+=(dd.qty||dd.q||0);sm.grossReceived+=(dd.gross||dd.g||0);sm.netReceived+=(dd.net||dd.n||0);sm.taxAmount+=(dd.tax||dd.t||0);sm.cop+=(dd.cop||dd.c||0);sm.pl+=(dd.pl||dd.p||0);}
+  sm.avgOrderValue=sm.totalOrders>0?sm.grossReceived/sm.totalOrders:0;
+  sm.margin=sm.grossReceived>0?(sm.pl/sm.grossReceived*100):0;
+  // Recompute byMonth from filtered daily
+  var monthMap={};
+  for(var i=0;i<filtDaily.length;i++){var dd=filtDaily[i];var dt=dd.date||dd.d||'';var mk=dt.slice(0,7);if(!monthMap[mk])monthMap[mk]={month:mk,orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};monthMap[mk].orders+=(dd.orders||dd.o||0);monthMap[mk].qty+=(dd.qty||dd.q||0);monthMap[mk].gross+=(dd.gross||dd.g||0);monthMap[mk].net+=(dd.net||dd.n||0);monthMap[mk].tax+=(dd.tax||dd.t||0);monthMap[mk].cop+=(dd.cop||dd.c||0);monthMap[mk].pl+=(dd.pl||dd.p||0);}
+  var filtMonths=Object.values(monthMap).sort(function(a,b){return a.month<b.month?-1:1;});
+  var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,topSkus:src.topSkus,pricing:src.pricing,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
+  DATA=fd; FILTERED_DATA=fd; renderAll();
 }
 
 function applyFilters(){
