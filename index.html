@@ -252,10 +252,12 @@ function fmt(n){if(n==null||isNaN(n))return '0';return Number(n).toLocaleString(
 function fmtCur(n){return '₹'+fmt(n);}
 function fmtPct(n){return (n||0).toFixed(1)+'%';}
 
-// ===== EXPAND SHORT KEYS from API pricing rows =====
+// ===== EXPAND SHORT KEYS from API pricing rows & dailyDetail =====
 var _SKM={u:'unique',oi:'orderId',ti:'trackingId',ci:'companyId',si:'skuId',so:'subOrderId',q:'qty',cr:'courier',sk:'sku',sc:'singleCombo',ca:'category',sb:'subCategory',co:'color',pr:'product',rq:'required',gr:'gross',tp:'taxPct',ta:'taxAmt',n:'net',cp:'cop',p:'pl',ap:'actualPrice',sp:'sellingPrice',ep:'estSellingPrice',d:'diff',dt:'date',pf:'platform',cm:'company'};
+var _DDM={dt:'date',pf:'platform',cm:'company',o:'orders',q:'qty',g:'gross',n:'net',t:'tax',c:'cop',p:'pl'};
 function _expandRow(r){if(r.unique!==undefined)return r;var o={};for(var k in r){o[_SKM[k]||k]=r[k];}return o;}
 function _expandPricing(pr){if(!pr)return;for(var pt in pr){if(!pr[pt].byPlatform)continue;for(var pp in pr[pt].byPlatform){for(var pc in pr[pt].byPlatform[pp].byCompany){var c=pr[pt].byPlatform[pp].byCompany[pc];if(c.rows&&c.rows.length>0&&c.rows[0].unique===undefined){for(var i=0;i<c.rows.length;i++){c.rows[i]=_expandRow(c.rows[i]);}}}}}}
+function _expandDailyDetail(dd){if(!dd||!dd.length||dd[0].date!==undefined)return dd;var out=[];for(var i=0;i<dd.length;i++){var r=dd[i],o={};for(var k in r){o[_DDM[k]||k]=r[k];}out.push(o);}return out;}
 
 // ===== LOAD DATA =====
 var _refreshing=false;
@@ -297,6 +299,7 @@ function silentRefresh(){
         var d=JSON.parse(text);
         if(d.error)return;
         _expandPricing(d.pricing);
+        d.dailyDetail=_expandDailyDetail(d.dailyDetail);
         DATA_CACHE['all']=d;
         // Preserve current filter state — just re-apply filters on new data
         applyDateFilter();
@@ -325,6 +328,7 @@ function forceRefresh(){
         var d=JSON.parse(text);
         if(d.error)return;
         _expandPricing(d.pricing);
+        d.dailyDetail=_expandDailyDetail(d.dailyDetail);
         DATA_CACHE['all']=d;
         applyDateFilter();
         document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
@@ -338,6 +342,7 @@ function onErr(msg){document.getElementById('loader').innerHTML='<div style="col
 function onData(d){
   if(d.error){onErr(d.error);return;}
   _expandPricing(d.pricing);
+  d.dailyDetail=_expandDailyDetail(d.dailyDetail);
   DATA=d;FILTERED_DATA=d;
   document.getElementById('loader').style.display='none';
   document.getElementById('app').style.display='block';
