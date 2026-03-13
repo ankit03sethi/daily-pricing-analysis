@@ -338,15 +338,20 @@ function applyDateFilter(){
   }
   // Fetch accurate server data
   var ctrl2=new AbortController();_activeController=ctrl2;
-  var tid2=setTimeout(function(){try{ctrl2.abort();}catch(e){}rstUI();}, 30000);
-  fetch(API_URL+'?days='+daysVal,{redirect:'follow',signal:ctrl2.signal}).then(function(r){return r.ok?r.text():null;}).then(function(text){
+  var tid2=setTimeout(function(){try{ctrl2.abort();}catch(e){}rstUI();}, 60000);
+  fetch(API_URL+'?days='+daysVal+'&nocache='+new Date().getTime(),{redirect:'follow',signal:ctrl2.signal}).then(function(r){return r.ok?r.text():null;}).then(function(text){
     clearTimeout(tid2); rstUI();
-    if(!text||_currentDays!==daysVal)return;try{
-      var d=JSON.parse(text);_expandPricing(d.pricing);_expandDaily(d.daily);
+    if(!text||_currentDays!==daysVal)return;
+    try{
+      var d=JSON.parse(text);
+      if(d.error){ console.error('API Error:', d.error); return; }
+      _expandPricing(d.pricing);_expandDaily(d.daily);
       DATA_CACHE[bgKey]=d;
       DATA=d;FILTERED_DATA=d;renderAllDebounced();
-    }catch(e){}
-  }).catch(function(){clearTimeout(tid2); rstUI();});
+    }catch(e){
+      console.error('Parse Error:', e.message, 'Text:', text.substring(0, 100));
+    }
+  }).catch(function(e){clearTimeout(tid2); rstUI(); console.error('Fetch Error:', e.message);});
 }
 
 // ===== RENDER ALL =====
