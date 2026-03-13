@@ -81,6 +81,7 @@ tr:hover td{background:#1f2b47}
 .drill-item:hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(79,195,247,.3);border-left-color:#39ff14}
 .drill-item .di-name{font-size:12px;color:#eee;font-weight:600;margin-bottom:4px}
 .drill-item .di-count{font-size:22px;font-weight:700;color:#39ff14}
+.drill-item .di-amt{font-size:11px;margin-top:2px}
 .drill-item.all-item{border-left-color:#e09f3e;background:#1a1a0d}
 .drill-item.all-item:hover{border-left-color:#39ff14}
 .drill-item.all-item .di-name{color:#e09f3e}
@@ -694,9 +695,12 @@ function renderPricing(){
   var netColor=netDiff>0?'#dc2f02':'#39ff14';
   var netSign=netDiff>0?'-':'+';
   var netClass=netDiff>0?'r':'g';
-  html+='<div class="cd '+netClass+'"><div class="lb">NET S/E</div><div class="vl">'+(p.short.count+p.excess.count)+'</div><div class="sub-val" style="color:'+netColor+'">'+netSign+fmt(Math.abs(netDiff))+'</div></div>';
-  html+='<div class="cd r" onclick="openPricingModal(\'short\')"><div class="lb">SHORT</div><div class="vl">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">'+fmt(Math.abs(p.short.totalDiff))+'</div></div>';
-  html+='<div class="cd g" onclick="openPricingModal(\'excess\')"><div class="lb">EXCESS</div><div class="vl">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">'+fmt(p.excess.totalDiff)+'</div></div>';
+  html+='<div class="cd '+netClass+'"><div class="lb">NET S/E</div><div class="vl">'+(p.short.count+p.excess.count)+'</div><div class="sub-val" style="color:'+netColor+'">'+netSign+fmtCur(Math.abs(netDiff))+'</div></div>';
+  html+='<div class="cd r" onclick="openPricingModal(\'short\')" style="cursor:pointer"><div class="lb">SHORT</div><div class="vl" style="color:#dc2f02">'+fmt(p.short.count)+'</div><div class="sub-val" style="color:#dc2f02">-'+fmtCur(Math.abs(p.short.totalDiff))+'</div></div>';
+  html+='<div class="cd g" onclick="openPricingModal(\'excess\')" style="cursor:pointer"><div class="lb">EXCESS</div><div class="vl" style="color:#39ff14">'+fmt(p.excess.count)+'</div><div class="sub-val" style="color:#39ff14">+'+fmtCur(p.excess.totalDiff)+'</div></div>';
+  // EQUAL card (yellow/gold)
+  var eq=p.equal||{count:0,totalDiff:0};
+  html+='<div class="cd" onclick="openPricingModal(\'equal\')" style="cursor:pointer;border-left:4px solid #e09f3e"><div class="lb">EQUAL</div><div class="vl" style="color:#e09f3e">'+fmt(eq.count)+'</div><div class="sub-val" style="color:#e09f3e">Matched</div></div>';
   document.getElementById('pricingCards').innerHTML=html;
 }
 
@@ -706,7 +710,7 @@ var DM_COLORS=['#39ff14','#4fc3f7','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6
 
 function openModal(type,label){
   DM={type:type,label:label,level:1,platform:'',company:'',data:null,companies:null};
-  if(type==='short'||type==='excess'){
+  if(type==='short'||type==='excess'||type==='equal'){
     DM.data=FILTERED_DATA.pricing?FILTERED_DATA.pricing[type]:null;
     if(!DM.data)return;
   } else {
@@ -748,15 +752,18 @@ function modalGoBack(){
 
 function renderDrillPlatforms(){
   var bp=FILTERED_DATA.byPlatform||{};
-  var isPricing=(DM.type==='short'||DM.type==='excess');
+  var isPricing=(DM.type==='short'||DM.type==='excess'||DM.type==='equal');
   var h='<div class="drill-grid">';
   if(isPricing){
     var p=DM.data;
-    h+='<div class="drill-item all-item" onclick="drillToPlatform(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmt(p.count)+'</div></div>';
+    var pColor=DM.type==='short'?'#dc2f02':(DM.type==='excess'?'#39ff14':'#e09f3e');
+    var pSign=DM.type==='short'?'-':(DM.type==='excess'?'+':'');
+    h+='<div class="drill-item all-item" onclick="drillToPlatform(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmt(p.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(p.totalDiff))+'</div></div>';
     var plats=Object.keys(p.byPlatform).sort(function(a,b){return p.byPlatform[b].count-p.byPlatform[a].count;});
     for(var i=0;i<plats.length;i++){
+      var pp=p.byPlatform[plats[i]];
       h+='<div class="drill-item" style="border-left-color:'+DM_COLORS[i%DM_COLORS.length]+'" onclick="drillToPlatform(\''+plats[i].replace(/'/g,"\\'")+'\')">';
-      h+='<div class="di-name">'+plats[i]+'</div><div class="di-count">'+fmt(p.byPlatform[plats[i]].count)+'</div></div>';
+      h+='<div class="di-name">'+plats[i]+'</div><div class="di-count">'+fmt(pp.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(pp.diff))+'</div></div>';
     }
   } else {
     var totalVal=0;for(var k in bp)totalVal+=getMetricVal(bp[k],DM.type);
@@ -781,38 +788,31 @@ function drillToPlatform(plat){
 }
 
 function renderDrillCompanies(){
-  var isPricing=(DM.type==='short'||DM.type==='excess');
+  var isPricing=(DM.type==='short'||DM.type==='excess'||DM.type==='equal');
   var h='<div class="drill-grid">';
   if(isPricing){
     var p=DM.data;
+    var pColor=DM.type==='short'?'#dc2f02':(DM.type==='excess'?'#39ff14':'#e09f3e');
+    var pSign=DM.type==='short'?'-':(DM.type==='excess'?'+':'');
     var companies={};
     if(DM.platform==='ALL'){
       for(var pp in p.byPlatform){for(var cc in p.byPlatform[pp].byCompany){if(!companies[cc])companies[cc]={count:0,diff:0};companies[cc].count+=p.byPlatform[pp].byCompany[cc].count;companies[cc].diff+=p.byPlatform[pp].byCompany[cc].diff;}}
     } else {
       companies=p.byPlatform[DM.platform]?p.byPlatform[DM.platform].byCompany:{};
     }
-    var totalCount=0;for(var cc in companies)totalCount+=companies[cc].count;
-    h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmt(totalCount)+'</div></div>';
+    var totalCount=0,totalDiff=0;for(var cc in companies){totalCount+=companies[cc].count;totalDiff+=companies[cc].diff;}
+    h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmt(totalCount)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(totalDiff))+'</div></div>';
     var comps=Object.keys(companies).sort(function(a,b){return companies[b].count-companies[a].count;});
     for(var i=0;i<comps.length;i++){
+      var co=companies[comps[i]];
       h+='<div class="drill-item" style="border-left-color:'+DM_COLORS[i%DM_COLORS.length]+'" onclick="drillToCompany(\''+comps[i].replace(/'/g,"\\'")+'\')">';
-      h+='<div class="di-name">'+comps[i]+'</div><div class="di-count">'+fmt(companies[comps[i]].count)+'</div></div>';
+      h+='<div class="di-name">'+comps[i]+'</div><div class="di-count">'+fmt(co.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(co.diff))+'</div></div>';
     }
     DM.companies=companies;
   } else {
     var bc=FILTERED_DATA.byCompany||{};
-    var platFilter=(DM.platform!=='ALL')?DM.platform:'';
     var compMap={};
-    // For financial metrics, byCompany has all companies but we need to filter by platform if needed
-    // Since byCompany doesn't have per-platform breakdown, we show all companies when platform=ALL
-    // and aggregate from byPlatform data for specific platforms (if available)
-    if(!platFilter){
-      for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
-    } else {
-      // Use daily data to re-aggregate by company for this platform
-      // For simplicity, show byCompany as-is (platform filter is informational)
-      for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
-    }
+    for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
     var totalVal=0;for(var k in compMap)totalVal+=compMap[k];
     h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmtMetric(totalVal,DM.type)+'</div></div>';
     var sorted=Object.keys(compMap).sort(function(a,b){return compMap[b]-compMap[a];});
@@ -835,19 +835,14 @@ function drillToCompany(comp){
 }
 
 function renderDrillTable(){
-  var isPricing=(DM.type==='short'||DM.type==='excess');
-  if(isPricing){
-    // Fetch rows on-demand from API
-    document.getElementById('modalContent').innerHTML='<div style="text-align:center;padding:40px;color:#4fc3f7">Loading pricing rows...<br><small>Fetching data from server</small></div>';
-    var rowUrl=API_URL+'?mode=rows&type='+encodeURIComponent(DM.type)+'&platform='+encodeURIComponent(DM.platform==='ALL'?'':DM.platform||'')+'&company='+encodeURIComponent(DM.company==='ALL'?'':DM.company)+(_currentDays?'&days='+_currentDays:'');
-    fetch(rowUrl,{redirect:'follow'}).then(function(r){return r.text();}).then(function(text){
-      try{var d=JSON.parse(text);var rawRows=d.rows||[];var rows=[];for(var ri=0;ri<rawRows.length;ri++){rows.push(_expandRow(rawRows[ri]));}rows.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});_renderDrillRows(rows);}catch(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Error loading rows: '+e.message+'</div>';}
-    }).catch(function(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Fetch failed: '+e.message+'</div>';});
-    return;
-  } else {
-    var h='<div style="padding:20px;text-align:center;color:#aaa;font-size:14px">Detailed row-level data is available for SHORT and EXCESS pricing cards.<br>Financial Overview cards show aggregated Platform &rarr; Company breakdown.</div>';
-    document.getElementById('modalContent').innerHTML=h;
-  }
+  var isPricing=(DM.type==='short'||DM.type==='excess'||DM.type==='equal');
+  // All card types now fetch rows on-demand
+  document.getElementById('modalContent').innerHTML='<div style="text-align:center;padding:40px;color:#4fc3f7">Loading rows...<br><small>Fetching data from server</small></div>';
+  var rowType=isPricing?DM.type:'all';
+  var rowUrl=API_URL+'?mode=rows&type='+encodeURIComponent(rowType)+'&platform='+encodeURIComponent(DM.platform==='ALL'?'':DM.platform||'')+'&company='+encodeURIComponent(DM.company==='ALL'?'':DM.company)+(_currentDays?'&days='+_currentDays:'');
+  fetch(rowUrl,{redirect:'follow'}).then(function(r){return r.text();}).then(function(text){
+    try{var d=JSON.parse(text);var rawRows=d.rows||[];var rows=[];for(var ri=0;ri<rawRows.length;ri++){rows.push(_expandRow(rawRows[ri]));}rows.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});_renderDrillRows(rows);}catch(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Error loading rows: '+e.message+'</div>';}
+  }).catch(function(e){document.getElementById('modalContent').innerHTML='<div style="color:red;padding:20px">Fetch failed: '+e.message+'</div>';});
 }
 
 function _renderDrillRows(rows){
@@ -940,11 +935,11 @@ function getMetricVal(obj,type){
 }
 function fmtMetric(val,type){
   if(type==='orders'||type==='qty')return fmt(val);
-  return fmt(val);
+  return fmtCur(val);
 }
 
 // Legacy aliases for pricing modal
-function openPricingModal(type){openModal(type,type==='short'?'SHORT':'EXCESS');}
+function openPricingModal(type){var labels={short:'SHORT',excess:'EXCESS',equal:'EQUAL'};openModal(type,labels[type]||type.toUpperCase());}
 function closePricingModal(){closeModal();}
 
 // ===== INIT =====

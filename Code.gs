@@ -1626,9 +1626,15 @@ function doGet(e) {
       filterStartStr = Utilities.formatDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysParam), tz, 'yyyy-MM-dd');
       filterEndStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
     }
-    // ROWS MODE: only fetch columns needed for pricing drill-down
+    // ROWS MODE: fetch rows for drill-down (pricing or all)
     if (rowsMode) {
-      var colRangesR = ['A2:A','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','V2:V','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB','H2:H','I2:I','J2:J','K2:K','L2:L','N2:N','P2:P','R2:R','S2:S','T2:T','U2:U','X2:X','AC2:AC'];
+      // Default to last 90 days if no days filter to prevent timeout
+      if (!filterStartStr) {
+        filterStartStr = Utilities.formatDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90), tz, 'yyyy-MM-dd');
+        filterEndStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+      }
+      // Fetch only essential columns for rows
+      var colRangesR = ['A2:A','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','V2:V','W2:W','Z2:Z','AA2:AA','AB2:AB','H2:H','I2:I','K2:K','L2:L','N2:N','X2:X','Y2:Y'];
       var rangesR = [];
       for (var i = 0; i < colRangesR.length; i++) rangesR.push("'" + tab + "'!" + colRangesR[i]);
       var resR = Sheets.Spreadsheets.Values.batchGet(ssId, {ranges: rangesR, valueRenderOption: 'UNFORMATTED_VALUE'});
@@ -1637,7 +1643,7 @@ function doGet(e) {
       for (var v = 0; v < vrR.length; v++) { var len = (vrR[v].values || []).length; if (len > maxR) maxR = len; }
       var cr = [];
       for (var c = 0; c < vrR.length; c++) cr.push(vrR[c].values || []);
-      // cr: 0=unique,1=date,2=platform,3=company,4=qty,5=masterSku,6=category,7=required,8=gross,9=taxAmt,10=net,11=cop,12=pl,13=orderId,14=trackingId,15=companyId,16=skuId,17=subOrderId,18=courier,19=singleCombo,20=subCategory,21=color,22=product,23=link,24=taxPct,25=actualPrice
+      // cr: 0=unique,1=date,2=platform,3=company,4=qty,5=masterSku,6=category,7=required,8=gross,9=net,10=cop,11=pl,12=orderId,13=trackingId,14=skuId,15=subOrderId,16=courier,17=taxPct,18=taxAmt
       var rType = (e.parameter.type || 'short').toLowerCase();
       var rPlat = e.parameter.platform || '';
       var rComp = e.parameter.company || '';
@@ -1648,9 +1654,11 @@ function doGet(e) {
         var qty = _toNum(r < cr[4].length && cr[4][r].length > 0 ? cr[4][r][0] : 0);
         var required = _toNum(r < cr[7].length && cr[7][r].length > 0 ? cr[7][r][0] : 0);
         var gross = _toNum(r < cr[8].length && cr[8][r].length > 0 ? cr[8][r][0] : 0);
-        if (required <= 0 || gross === required) continue;
-        var pType = gross < required ? 'short' : 'excess';
-        if (pType !== rType) continue;
+        // Filter by type
+        if (rType === 'short') { if (required <= 0 || gross >= required) continue; }
+        else if (rType === 'excess') { if (required <= 0 || gross <= required) continue; }
+        else if (rType === 'equal') { if (required <= 0 || gross !== required) continue; }
+        // type=all: no pricing filter, return all rows
         var platform = String(r < cr[2].length && cr[2][r].length > 0 ? cr[2][r][0] : '').trim() || 'Unknown';
         var company = String(r < cr[3].length && cr[3][r].length > 0 ? cr[3][r][0] : '').trim() || 'Unknown';
         if (rPlat && platform !== rPlat) continue;
@@ -1662,13 +1670,12 @@ function doGet(e) {
         else if (dateVal) { var pp = new Date(dateVal); if (!isNaN(pp.getTime())) dateStr = Utilities.formatDate(pp, tz, 'yyyy-MM-dd'); }
         if (filterStartStr && (!dateStr || dateStr < filterStartStr || dateStr > filterEndStr)) continue;
         var diff = Math.round((gross - required) * 100) / 100;
-        var tax = _toNum(r < cr[9].length && cr[9][r].length > 0 ? cr[9][r][0] : 0);
-        var net = _toNum(r < cr[10].length && cr[10][r].length > 0 ? cr[10][r][0] : 0);
-        var cop = _toNum(r < cr[11].length && cr[11][r].length > 0 ? cr[11][r][0] : 0);
-        var pl = _toNum(r < cr[12].length && cr[12][r].length > 0 ? cr[12][r][0] : 0);
-        var taxPct = _toNum(r < cr[24].length && cr[24][r].length > 0 ? cr[24][r][0] : 0);
-        var actualPrice = _toNum(r < cr[25].length && cr[25][r].length > 0 ? cr[25][r][0] : 0);
-        matchRows.push({u:String(unique),oi:String(r<cr[13].length&&cr[13][r].length>0?cr[13][r][0]:''),ti:String(r<cr[14].length&&cr[14][r].length>0?cr[14][r][0]:''),ci:String(r<cr[15].length&&cr[15][r].length>0?cr[15][r][0]:''),si:String(r<cr[16].length&&cr[16][r].length>0?cr[16][r][0]:''),so:String(r<cr[17].length&&cr[17][r].length>0?cr[17][r][0]:''),q:qty,cr:String(r<cr[18].length&&cr[18][r].length>0?cr[18][r][0]:''),sk:String(r<cr[5].length&&cr[5][r].length>0?cr[5][r][0]:''),sc:String(r<cr[19].length&&cr[19][r].length>0?cr[19][r][0]:''),ca:String(r<cr[6].length&&cr[6][r].length>0?cr[6][r][0]:''),sb:String(r<cr[20].length&&cr[20][r].length>0?cr[20][r][0]:''),co:String(r<cr[21].length&&cr[21][r].length>0?cr[21][r][0]:''),pr:String(r<cr[22].length&&cr[22][r].length>0?cr[22][r][0]:''),rq:required,gr:gross,tp:taxPct,ta:tax,n:net,cp:cop,p:pl,ap:actualPrice,sp:0,ep:0,d:diff,dt:dateStr,pf:platform,cm:company});
+        var tax = _toNum(r < cr[18].length && cr[18][r].length > 0 ? cr[18][r][0] : 0);
+        var net = _toNum(r < cr[9].length && cr[9][r].length > 0 ? cr[9][r][0] : 0);
+        var cop = _toNum(r < cr[10].length && cr[10][r].length > 0 ? cr[10][r][0] : 0);
+        var pl = _toNum(r < cr[11].length && cr[11][r].length > 0 ? cr[11][r][0] : 0);
+        var taxPct = _toNum(r < cr[17].length && cr[17][r].length > 0 ? cr[17][r][0] : 0);
+        matchRows.push({u:String(unique),oi:String(r<cr[12].length&&cr[12][r].length>0?cr[12][r][0]:''),ti:String(r<cr[13].length&&cr[13][r].length>0?cr[13][r][0]:''),si:String(r<cr[14].length&&cr[14][r].length>0?cr[14][r][0]:''),so:String(r<cr[15].length&&cr[15][r].length>0?cr[15][r][0]:''),q:qty,cr:String(r<cr[16].length&&cr[16][r].length>0?cr[16][r][0]:''),sk:String(r<cr[5].length&&cr[5][r].length>0?cr[5][r][0]:''),ca:String(r<cr[6].length&&cr[6][r].length>0?cr[6][r][0]:''),rq:required,gr:gross,tp:taxPct,ta:tax,n:net,cp:cop,p:pl,d:diff,dt:dateStr,pf:platform,cm:company});
       }
       matchRows.sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
       if (matchRows.length > 500) matchRows = matchRows.slice(0, 500);
@@ -1683,7 +1690,7 @@ function doGet(e) {
     var maxRows = 0;
     for (var v = 0; v < vr.length; v++) { var len = (vr[v].values || []).length; if (len > maxRows) maxRows = len; }
     if (maxRows === 0) {
-      return _jsonResp({summary:{},byPlatform:{},byCompany:{},byMonth:[],byCategory:{},daily:[],topSkus:[],platforms:[],companies:[],pricing:{short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}}},timestamp:new Date().toISOString()});
+      return _jsonResp({summary:{},byPlatform:{},byCompany:{},byMonth:[],byCategory:{},daily:[],topSkus:[],platforms:[],companies:[],pricing:{short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}},timestamp:new Date().toISOString()});
     }
     var cols = [];
     for (var c = 0; c < vr.length; c++) cols.push(vr[c].values || []);
@@ -1691,7 +1698,7 @@ function doGet(e) {
     var summary = {totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0};
     var byPlatform={},byCompany={},byMonthMap={},byCategory={},bySku={},dailyMap={};
     var seenOrders={},seenByPlatform={},seenByCompany={},seenByMonth={},seenByCategory={},seenByDaily={};
-    var pricing={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}}};
+    var pricing={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}};
     for (var r = 0; r < maxRows; r++) {
       var unique = r < cols[0].length && cols[0][r].length > 0 ? cols[0][r][0] : '';
       if (!unique || String(unique).trim() === '') continue;
@@ -1745,8 +1752,8 @@ function doGet(e) {
       if (!bySku[sku]) bySku[sku]={sku:sku,platform:platform,orders:0,qty:0,gross:0,net:0,cop:0,pl:0};
       bySku[sku].orders++; bySku[sku].qty+=qty; bySku[sku].gross+=gross; bySku[sku].net+=net; bySku[sku].cop+=cop; bySku[sku].pl+=pl;
       // Pricing: only counts and diffs, NO row objects
-      if (required > 0 && gross !== required) {
-        var pType = gross < required ? 'short' : 'excess';
+      if (required > 0) {
+        var pType = gross < required ? 'short' : (gross > required ? 'excess' : 'equal');
         var diff = Math.round((gross - required) * 100) / 100;
         pricing[pType].count++;
         pricing[pType].totalDiff += diff;
@@ -1775,6 +1782,7 @@ function doGet(e) {
     // Round pricing diffs
     pricing.short.totalDiff=Math.round(pricing.short.totalDiff*100)/100;
     pricing.excess.totalDiff=Math.round(pricing.excess.totalDiff*100)/100;
+    pricing.equal.totalDiff=Math.round(pricing.equal.totalDiff*100)/100;
     for(var pt in pricing){for(var pp in pricing[pt].byPlatform){pricing[pt].byPlatform[pp].diff=Math.round(pricing[pt].byPlatform[pp].diff*100)/100;for(var pc in pricing[pt].byPlatform[pp].byCompany){pricing[pt].byPlatform[pp].byCompany[pc].diff=Math.round(pricing[pt].byPlatform[pp].byCompany[pc].diff*100)/100;}}}
     var result = {summary:summary,byPlatform:byPlatform,byCompany:byCompany,byMonth:byMonth,byCategory:byCategory,daily:daily,topSkus:topSkus,platforms:platforms,companies:companies,pricing:pricing,timestamp:new Date().toISOString()};
     var jsonStr = JSON.stringify(result);
