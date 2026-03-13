@@ -258,6 +258,7 @@ var _DDM={dt:'date',pf:'platform',cm:'company',o:'orders',q:'qty',g:'gross',n:'n
 function _expandRow(r){if(r.unique!==undefined)return r;var o={};for(var k in r){o[_SKM[k]||k]=r[k];}return o;}
 function _expandPricing(pr){if(!pr)return;for(var pt in pr){if(!pr[pt].byPlatform)continue;for(var pp in pr[pt].byPlatform){for(var pc in pr[pt].byPlatform[pp].byCompany){var c=pr[pt].byPlatform[pp].byCompany[pc];if(c.rows&&c.rows.length>0&&c.rows[0].unique===undefined){for(var i=0;i<c.rows.length;i++){c.rows[i]=_expandRow(c.rows[i]);}}}}}}
 function _expandDailyDetail(dd){if(!dd||!dd.length||dd[0].date!==undefined)return dd;var out=[];for(var i=0;i<dd.length;i++){var r=dd[i],o={};for(var k in r){o[_DDM[k]||k]=r[k];}out.push(o);}return out;}
+function _expandDaily(arr){if(!arr||!arr.length)return arr;if(arr[0].date!==undefined)return arr;for(var i=0;i<arr.length;i++){var e=arr[i];if(e.d!==undefined&&e.date===undefined){e.date=e.d;e.orders=e.o||0;e.qty=e.q||0;e.gross=e.g||0;e.net=e.n||0;e.tax=e.t||0;e.cop=e.c||0;e.pl=e.p||0;}}return arr;}
 
 // ===== LOAD DATA =====
 var _refreshing=false;
@@ -299,6 +300,7 @@ function silentRefresh(){
         var d=JSON.parse(text);
         if(d.error)return;
         _expandPricing(d.pricing);
+        _expandDaily(d.daily);
             DATA_CACHE['all']=d;
         // Preserve current filter state — just re-apply filters on new data
         applyDateFilter();
@@ -327,6 +329,7 @@ function forceRefresh(){
         var d=JSON.parse(text);
         if(d.error)return;
         _expandPricing(d.pricing);
+        _expandDaily(d.daily);
             DATA_CACHE['all']=d;
         applyDateFilter();
         document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
@@ -340,6 +343,7 @@ function onErr(msg){document.getElementById('loader').innerHTML='<div style="col
 function onData(d){
   if(d.error){onErr(d.error);return;}
   _expandPricing(d.pricing);
+  _expandDaily(d.daily);
 DATA=d;FILTERED_DATA=d;
   document.getElementById('loader').style.display='none';
   document.getElementById('app').style.display='block';
@@ -395,23 +399,8 @@ function applyDateFilter(){
     if(d.bp){for(var p in d.bp){var v=d.bp[p];if(!filteredByPlatform[p])filteredByPlatform[p]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};filteredByPlatform[p].orders+=v.o;filteredByPlatform[p].qty+=v.q;filteredByPlatform[p].gross+=v.g;filteredByPlatform[p].net+=v.n;filteredByPlatform[p].tax+=v.t;filteredByPlatform[p].cop+=v.c;filteredByPlatform[p].pl+=v.p;}}
     if(d.bc){for(var c in d.bc){var v=d.bc[c];if(!filteredByCompany[c])filteredByCompany[c]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};filteredByCompany[c].orders+=v.o;filteredByCompany[c].qty+=v.q;filteredByCompany[c].gross+=v.g;filteredByCompany[c].net+=v.n;filteredByCompany[c].tax+=v.t;filteredByCompany[c].cop+=v.c;filteredByCompany[c].pl+=v.p;}}
   });
-  // Filter pricing rows by date
-  var filteredPricing=null;
-  if(src.pricing){
-    filteredPricing={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}}};
-    ['short','excess'].forEach(function(pType){
-      for(var pp in src.pricing[pType].byPlatform){
-        for(var cc in src.pricing[pType].byPlatform[pp].byCompany){
-          var fRows=src.pricing[pType].byPlatform[pp].byCompany[cc].rows.filter(function(r){return r.date>=startDate&&r.date<=endDate;});
-          if(fRows.length>0){
-            if(!filteredPricing[pType].byPlatform[pp])filteredPricing[pType].byPlatform[pp]={count:0,diff:0,byCompany:{}};
-            filteredPricing[pType].byPlatform[pp].byCompany[cc]={count:fRows.length,diff:0,rows:fRows};
-            fRows.forEach(function(r){filteredPricing[pType].byPlatform[pp].byCompany[cc].diff+=r.diff;filteredPricing[pType].byPlatform[pp].count++;filteredPricing[pType].byPlatform[pp].diff+=r.diff;filteredPricing[pType].count++;filteredPricing[pType].totalDiff+=r.diff;});
-          }
-        }
-      }
-    });
-  }
+  // Pricing: pass through as-is (rows are fetched on-demand, no client-side filtering needed)
+  var filteredPricing=src.pricing||null;
   // Build filtered data object (use re-aggregated byPlatform/byCompany from daily bp/bc)
   var useBP=(Object.keys(filteredByPlatform).length>0)?filteredByPlatform:src.byPlatform;
   var useBC=(Object.keys(filteredByCompany).length>0)?filteredByCompany:src.byCompany;
