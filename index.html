@@ -58,10 +58,6 @@ tr:hover td{background:#1f2b47}
 .ft{text-align:center;color:#555;font-size:10px;margin-top:8px}
 .home-btn{background:none;border:none;cursor:pointer;padding:4px;position:absolute;left:0;top:50%;transform:translateY(-50%);display:flex;align-items:center}
 .home-btn svg{width:28px;height:28px;fill:none;stroke:#39ff14}
-.tab-bar{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
-.tab-btn{background:#0a1e40;color:#4fc3f7;border:1px solid #444;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;transition:.2s}
-.tab-btn:hover{background:#1a4a80;border-color:#4fc3f7}
-.tab-btn.active{background:#39ff14;color:#1a1a2e;border-color:#39ff14}
 .full-w{grid-template-columns:1fr}
 /* Modal styles matching SKU Wise */
 .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:100;overflow-y:auto;padding:20px}
@@ -121,8 +117,7 @@ tr:hover td{background:#1f2b47}
 
 <!-- FILTERS -->
 <div class="fbox">
-<h3>Filters</h3>
-<div class="frow">
+<div class="frow" style="flex-wrap:wrap;gap:6px">
   <select id="fDateRange" onchange="applyDateFilter()" style="background:#0a1628;color:#39ff14;border:1px solid #39ff14;border-radius:6px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">
     <option value="">All Time</option>
     <option value="0">Today</option>
@@ -132,25 +127,18 @@ tr:hover td{background:#1f2b47}
     <option value="30">Last 30 Days</option>
     <option value="60">Last 60 Days</option>
   </select>
-  <select id="fPlatform"><option value="">All Platforms</option></select>
-  <select id="fCompany"><option value="">All Companies</option></select>
-  <select id="fMonth"><option value="">All Months</option></select>
-  <button class="fbtn" onclick="applyFilters()">Apply</button>
-  <button class="fbtn clr" onclick="clearFilters()">Clear</button>
+  <select id="fPlatform" onchange="applyAllFilters()"><option value="">All Platforms</option></select>
+  <select id="fCompany" onchange="applyAllFilters()"><option value="">All Companies</option></select>
+  <select id="fMasterSku" onchange="applyAllFilters()"><option value="">All Master SKUs</option></select>
+  <select id="fCategory" onchange="applyAllFilters()"><option value="">All Categories</option></select>
+  <select id="fSubCategory" onchange="applyAllFilters()"><option value="">All SubCategories</option></select>
+  <select id="fColor" onchange="applyAllFilters()"><option value="">All Colors</option></select>
+  <select id="fProduct" onchange="applyAllFilters()"><option value="">All Products</option></select>
+  <select id="fSku" onchange="applyAllFilters()"><option value="">All SKU IDs</option></select>
+  <button class="fbtn clr" onclick="clearAllFilters()">Clear</button>
   <button class="fbtn ref" onclick="forceRefresh()">Refresh</button>
   <button class="fbtn dl" onclick="downloadCSV()">Download CSV</button>
 </div>
-</div>
-
-<!-- TAB NAVIGATION -->
-<div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('overview',this)">Overview</button>
-  <button class="tab-btn" onclick="switchTab('platform',this)">Platform</button>
-  <button class="tab-btn" onclick="switchTab('company',this)">Company</button>
-  <button class="tab-btn" onclick="switchTab('monthly',this)">Monthly</button>
-  <button class="tab-btn" onclick="switchTab('daily',this)">Daily Trend</button>
-  <button class="tab-btn" onclick="switchTab('topsku',this)">Top SKUs</button>
-  <button class="tab-btn" onclick="switchTab('category',this)">Category</button>
 </div>
 
 <!-- OVERVIEW TAB -->
@@ -166,7 +154,7 @@ tr:hover td{background:#1f2b47}
 </div>
 
 <!-- PLATFORM TAB -->
-<div id="tab-platform" style="display:none">
+<div id="tab-platform">
 <div class="section-title">PLATFORM WISE BREAKDOWN</div>
 <div class="cards" id="platCards"></div>
 <div class="chs">
@@ -180,7 +168,7 @@ tr:hover td{background:#1f2b47}
 </div>
 
 <!-- COMPANY TAB -->
-<div id="tab-company" style="display:none">
+<div id="tab-company">
 <div class="section-title">COMPANY WISE BREAKDOWN</div>
 <div class="cards" id="compCards"></div>
 <div class="tbox">
@@ -190,7 +178,7 @@ tr:hover td{background:#1f2b47}
 </div>
 
 <!-- MONTHLY TAB -->
-<div id="tab-monthly" style="display:none">
+<div id="tab-monthly">
 <div class="section-title">MONTHLY TRENDS</div>
 <div class="chs full-w">
   <div class="chb"><h3>Monthly Revenue & Cost Trend</h3><canvas id="chMonthFull"></canvas></div>
@@ -202,7 +190,7 @@ tr:hover td{background:#1f2b47}
 </div>
 
 <!-- DAILY TAB -->
-<div id="tab-daily" style="display:none">
+<div id="tab-daily">
 <div class="section-title">DAILY TRENDS (LAST 60 DAYS)</div>
 <div class="chs full-w">
   <div class="chb"><h3>Daily Revenue</h3><canvas id="chDailyRev"></canvas></div>
@@ -213,7 +201,7 @@ tr:hover td{background:#1f2b47}
 </div>
 
 <!-- TOP SKU TAB -->
-<div id="tab-topsku" style="display:none">
+<div id="tab-topsku">
 <div class="section-title">TOP 20 SKUs BY REVENUE</div>
 <div class="chs full-w">
   <div class="chb"><h3>Top SKUs Revenue</h3><canvas id="chTopSku"></canvas></div>
@@ -225,7 +213,7 @@ tr:hover td{background:#1f2b47}
 </div>
 
 <!-- CATEGORY TAB -->
-<div id="tab-category" style="display:none">
+<div id="tab-category">
 <div class="section-title">CATEGORY BREAKDOWN</div>
 <div class="chs">
   <div class="chb"><h3>Revenue by Category</h3><canvas id="chCatRev"></canvas></div>
@@ -355,15 +343,17 @@ DATA=d;FILTERED_DATA=d;
 
 // ===== FILTERS =====
 function buildFilters(){
-  var pSel=document.getElementById('fPlatform');
-  var cSel=document.getElementById('fCompany');
-  var mSel=document.getElementById('fMonth');
-  pSel.innerHTML='<option value="">All Platforms</option>';
-  cSel.innerHTML='<option value="">All Companies</option>';
-  mSel.innerHTML='<option value="">All Months</option>';
-  (DATA.platforms||[]).forEach(function(p){pSel.innerHTML+='<option value="'+p+'">'+p+'</option>';});
-  (DATA.companies||[]).forEach(function(c){cSel.innerHTML+='<option value="'+c+'">'+c+'</option>';});
-  (DATA.byMonth||[]).forEach(function(m){mSel.innerHTML+='<option value="'+m.month+'">'+m.month+'</option>';});
+  var src=DATA_CACHE['all']||DATA;
+  var selIds=['fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
+  var dataKeys=['platforms','companies','masterSkus','categories','subCategories','colors','products','skuIds'];
+  var labels=['All Platforms','All Companies','All Master SKUs','All Categories','All SubCategories','All Colors','All Products','All SKU IDs'];
+  for(var i=0;i<selIds.length;i++){
+    var sel=document.getElementById(selIds[i]);
+    if(!sel)continue;
+    var arr=src[dataKeys[i]]||[];
+    sel.innerHTML='<option value="">'+labels[i]+'</option>';
+    for(var j=0;j<arr.length;j++){sel.innerHTML+='<option value="'+arr[j]+'">'+arr[j]+'</option>';}
+  }
 }
 
 // ===== DATE FILTER: fetches from API with ?days=X for correct pricing counts =====
@@ -413,15 +403,20 @@ function applyDateFilter(){
   DATA=fd; FILTERED_DATA=fd; renderAll();
 }
 
-function applyFilters(){
+function applyAllFilters(){
+  // Get all filter values
   var fp=document.getElementById('fPlatform').value;
   var fc=document.getElementById('fCompany').value;
-  var fm=document.getElementById('fMonth').value;
-
-  if(!fp&&!fc&&!fm){FILTERED_DATA=DATA;renderAll();return;}
-
-  var fd={summary:{totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0},byPlatform:{},byCompany:{},byMonth:[],byCategory:{},daily:[],topSkus:DATA.topSkus,platforms:DATA.platforms,companies:DATA.companies,timestamp:DATA.timestamp};
-
+  var fms=document.getElementById('fMasterSku').value;
+  var fcat=document.getElementById('fCategory').value;
+  var fsub=document.getElementById('fSubCategory').value;
+  var fcol=document.getElementById('fColor').value;
+  var fprod=document.getElementById('fProduct').value;
+  var fsku=document.getElementById('fSku').value;
+  // If no filters, just use DATA
+  if(!fp&&!fc&&!fms&&!fcat&&!fsub&&!fcol&&!fprod&&!fsku){FILTERED_DATA=DATA;renderAll();return;}
+  // Filter byPlatform
+  var fd={summary:{totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0,avgOrderValue:0,margin:0},byPlatform:{},byCompany:{},byMonth:DATA.byMonth||[],byCategory:{},daily:DATA.daily||[],topSkus:DATA.topSkus,platforms:DATA.platforms,companies:DATA.companies,pricing:DATA.pricing,timestamp:DATA.timestamp};
   // Filter byPlatform
   for(var k in DATA.byPlatform){
     if(fp&&k!==fp)continue;
@@ -435,33 +430,19 @@ function applyFilters(){
     fd.summary.pl+=DATA.byPlatform[k].pl;
   }
   if(fp){fd.summary.avgOrderValue=fd.summary.totalOrders>0?fd.summary.grossReceived/fd.summary.totalOrders:0;fd.summary.margin=fd.summary.grossReceived>0?(fd.summary.pl/fd.summary.grossReceived*100):0;}
-
+  else{fd.summary=DATA.summary;}
   // Filter byCompany
-  for(var k in DATA.byCompany){
-    if(fc&&k!==fc)continue;
-    fd.byCompany[k]=DATA.byCompany[k];
-  }
-
-  // Filter byMonth
-  (DATA.byMonth||[]).forEach(function(m){if(!fm||m.month===fm)fd.byMonth.push(m);});
-
-  // Daily
-  fd.daily=DATA.daily||[];
-
-  // Category (no server-side filter, show all)
-  fd.byCategory=DATA.byCategory;
-
-  if(!fp){fd.summary=DATA.summary;}
+  for(var k in DATA.byCompany){if(fc&&k!==fc)continue;fd.byCompany[k]=DATA.byCompany[k];}
+  // Filter byCategory
+  for(var k in DATA.byCategory){if(fcat&&k!==fcat)continue;fd.byCategory[k]=DATA.byCategory[k];}
   FILTERED_DATA=fd;
   renderAll();
 }
 
-function clearFilters(){
-  document.getElementById('fPlatform').value='';
-  document.getElementById('fCompany').value='';
-  document.getElementById('fMonth').value='';
-  document.getElementById('fDateRange').value='1';
-  applyDateFilter();
+function clearAllFilters(){
+  var selIds=['fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
+  for(var i=0;i<selIds.length;i++){var s=document.getElementById(selIds[i]);if(s)s.value='';}
+  FILTERED_DATA=DATA;renderAll();
 }
 
 // ===== RENDER ALL =====
@@ -499,15 +480,6 @@ function card(label,val,cls,metric){
 }
 function cardPL(label,val){var cls=val>=0?'g':'r';var prefix=val>=0?'+':'';return '<div class="cd '+cls+'" onclick="openModal(\'pl\',\'Total P/L\')"><div class="lb">'+label+'</div><div class="vl '+(val>=0?'profit':'loss')+'">'+prefix+fmtCur(val)+'</div></div>';}
 
-// ===== TAB SWITCHING =====
-function switchTab(tab,btn){
-  ACTIVE_TAB=tab;
-  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
-  btn.classList.add('active');
-  ['overview','platform','company','monthly','daily','topsku','category'].forEach(function(t){
-    document.getElementById('tab-'+t).style.display=(t===tab?'block':'none');
-  });
-}
 
 // ===== OVERVIEW CHARTS =====
 function renderOverview(){
@@ -716,17 +688,26 @@ var DM_COLORS=['#39ff14','#4fc3f7','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6
 
 function openModal(type,label){
   DM={type:type,label:label,level:1,platform:'',company:'',data:null,companies:null};
-  if(type==='short'||type==='excess'||type==='equal'){
+  var isPricing=(type==='short'||type==='excess'||type==='equal');
+  if(isPricing){
     DM.data=FILTERED_DATA.pricing?FILTERED_DATA.pricing[type]:null;
     if(!DM.data)return;
   } else {
     DM.data=FILTERED_DATA;
   }
+  document.getElementById('modalOverlay').className='modal-overlay show';
+  document.body.style.overflow='hidden';
+  // If pricing has no byPlatform breakdown (client-side date filter), skip to rows
+  if(isPricing&&(!DM.data.byPlatform||Object.keys(DM.data.byPlatform).length===0)){
+    DM.level=3;DM.platform='ALL';DM.company='ALL';
+    document.getElementById('modalTitle').textContent=label+' - SKU Summary';
+    document.getElementById('modalNav').style.display='flex';
+    document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread"><span>'+label+'</span></div>';
+    renderDrillTable();return;
+  }
   document.getElementById('modalTitle').textContent=label+' - Platform Breakdown';
   document.getElementById('modalNav').style.display='none';
   renderDrillPlatforms();
-  document.getElementById('modalOverlay').className='modal-overlay show';
-  document.body.style.overflow='hidden';
 }
 function closeModal(){
   document.getElementById('modalOverlay').className='modal-overlay';
