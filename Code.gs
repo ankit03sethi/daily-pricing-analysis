@@ -1745,9 +1745,10 @@ function doGet(e) {
       if (!seenByCategory[category][unique]) { seenByCategory[category][unique]=true; byCategory[category].orders++; }
       byCategory[category].qty+=qty; byCategory[category].gross+=gross; byCategory[category].net+=net; byCategory[category].cop+=cop; byCategory[category].pl+=pl;
       if (dateStr) {
-        if (!dailyMap[dateStr]) { dailyMap[dateStr]={d:dateStr,o:0,q:0,g:0,n:0,t:0,c:0,p:0}; seenByDaily[dateStr]={}; }
+        if (!dailyMap[dateStr]) { dailyMap[dateStr]={d:dateStr,o:0,q:0,g:0,n:0,t:0,c:0,p:0,sc:0,sd:0,ec:0,ed:0,qc:0}; seenByDaily[dateStr]={}; }
         if (!seenByDaily[dateStr][unique]) { seenByDaily[dateStr][unique]=true; dailyMap[dateStr].o++; }
         dailyMap[dateStr].q+=qty; dailyMap[dateStr].g+=gross; dailyMap[dateStr].n+=net; dailyMap[dateStr].t+=tax; dailyMap[dateStr].c+=cop; dailyMap[dateStr].p+=pl;
+        if (required > 0) { var pdiff=Math.round((gross-required)*100)/100; if(gross<required){dailyMap[dateStr].sc++;dailyMap[dateStr].sd+=pdiff;}else if(gross>required){dailyMap[dateStr].ec++;dailyMap[dateStr].ed+=pdiff;}else{dailyMap[dateStr].qc++;} }
       }
       if (!bySku[sku]) bySku[sku]={sku:sku,platform:platform,orders:0,qty:0,gross:0,net:0,cop:0,pl:0};
       bySku[sku].orders++; bySku[sku].qty+=qty; bySku[sku].gross+=gross; bySku[sku].net+=net; bySku[sku].cop+=cop; bySku[sku].pl+=pl;

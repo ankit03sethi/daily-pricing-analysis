@@ -405,22 +405,12 @@ function applyDateFilter(){
   var monthMap={};
   for(var i=0;i<filtDaily.length;i++){var dd=filtDaily[i];var dt=dd.date||dd.d||'';var mk=dt.slice(0,7);if(!monthMap[mk])monthMap[mk]={month:mk,orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};monthMap[mk].orders+=(dd.orders||dd.o||0);monthMap[mk].qty+=(dd.qty||dd.q||0);monthMap[mk].gross+=(dd.gross||dd.g||0);monthMap[mk].net+=(dd.net||dd.n||0);monthMap[mk].tax+=(dd.tax||dd.t||0);monthMap[mk].cop+=(dd.cop||dd.c||0);monthMap[mk].pl+=(dd.pl||dd.p||0);}
   var filtMonths=Object.values(monthMap).sort(function(a,b){return a.month<b.month?-1:1;});
-  // Render instantly with client-side filtered summary/daily/months
-  var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,topSkus:src.topSkus,pricing:src.pricing,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
+  // Recompute pricing from daily entries (sc=short count, sd=short diff, ec=excess count, ed=excess diff, qc=equal count)
+  var fp={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}};
+  for(var i=0;i<filtDaily.length;i++){var dd=filtDaily[i];fp.short.count+=(dd.sc||0);fp.short.totalDiff+=(dd.sd||0);fp.excess.count+=(dd.ec||0);fp.excess.totalDiff+=(dd.ed||0);fp.equal.count+=(dd.qc||0);}
+  // Render instantly — all client-side, no API call needed
+  var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,pricing:fp,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
   DATA=fd; FILTERED_DATA=fd; renderAll();
-  // Background fetch for accurate pricing/byPlatform/byCompany
-  var url=API_URL+'?days='+daysVal;
-  fetch(url,{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
-    if(!text)return;try{
-      var d=JSON.parse(text);_expandPricing(d.pricing);_expandDaily(d.daily);
-      // Merge server data with client-side filtered summary
-      fd.pricing=d.pricing||fd.pricing;fd.byPlatform=d.byPlatform||fd.byPlatform;fd.byCompany=d.byCompany||fd.byCompany;fd.byCategory=d.byCategory||fd.byCategory;fd.topSkus=d.topSkus||fd.topSkus;
-      if(d.summary)fd.summary=d.summary;
-      if(d.daily){fd.daily=d.daily;}_expandDaily(fd.daily);
-      if(d.byMonth)fd.byMonth=d.byMonth;
-      DATA=fd;FILTERED_DATA=fd;renderAll();
-    }catch(e){}
-  }).catch(function(){});
 }
 
 function applyFilters(){
