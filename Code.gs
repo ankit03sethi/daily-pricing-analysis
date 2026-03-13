@@ -1603,6 +1603,10 @@ function autoRefresh() {
 
 function doGet(e) {
   try {
+    // DIAGNOSTIC: ?test=1 returns minimal response to verify deployment
+    if (e && e.parameter && e.parameter.test === '1') {
+      return ContentService.createTextOutput(JSON.stringify({ok:true,ts:new Date().toISOString()})).setMimeType(ContentService.MimeType.JSON);
+    }
     var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
     var tab = 'MASTER CSV';
     var tz = Session.getScriptTimeZone();
@@ -1734,13 +1738,9 @@ function doGet(e) {
       if (!seenByCategory[category][unique]) { seenByCategory[category][unique]=true; byCategory[category].orders++; }
       byCategory[category].qty+=qty; byCategory[category].gross+=gross; byCategory[category].net+=net; byCategory[category].cop+=cop; byCategory[category].pl+=pl;
       if (dateStr) {
-        if (!dailyMap[dateStr]) { dailyMap[dateStr]={d:dateStr,o:0,q:0,g:0,n:0,t:0,c:0,p:0,bp:{},bc:{}}; seenByDaily[dateStr]={}; }
+        if (!dailyMap[dateStr]) { dailyMap[dateStr]={d:dateStr,o:0,q:0,g:0,n:0,t:0,c:0,p:0}; seenByDaily[dateStr]={}; }
         if (!seenByDaily[dateStr][unique]) { seenByDaily[dateStr][unique]=true; dailyMap[dateStr].o++; }
         dailyMap[dateStr].q+=qty; dailyMap[dateStr].g+=gross; dailyMap[dateStr].n+=net; dailyMap[dateStr].t+=tax; dailyMap[dateStr].c+=cop; dailyMap[dateStr].p+=pl;
-        if(!dailyMap[dateStr].bp[platform])dailyMap[dateStr].bp[platform]={o:0,q:0,g:0,n:0,t:0,c:0,p:0};
-        dailyMap[dateStr].bp[platform].o++;dailyMap[dateStr].bp[platform].q+=qty;dailyMap[dateStr].bp[platform].g+=gross;dailyMap[dateStr].bp[platform].n+=net;dailyMap[dateStr].bp[platform].t+=tax;dailyMap[dateStr].bp[platform].c+=cop;dailyMap[dateStr].bp[platform].p+=pl;
-        if(!dailyMap[dateStr].bc[company])dailyMap[dateStr].bc[company]={o:0,q:0,g:0,n:0,t:0,c:0,p:0};
-        dailyMap[dateStr].bc[company].o++;dailyMap[dateStr].bc[company].q+=qty;dailyMap[dateStr].bc[company].g+=gross;dailyMap[dateStr].bc[company].n+=net;dailyMap[dateStr].bc[company].t+=tax;dailyMap[dateStr].bc[company].c+=cop;dailyMap[dateStr].bc[company].p+=pl;
       }
       if (!bySku[sku]) bySku[sku]={sku:sku,platform:platform,orders:0,qty:0,gross:0,net:0,cop:0,pl:0};
       bySku[sku].orders++; bySku[sku].qty+=qty; bySku[sku].gross+=gross; bySku[sku].net+=net; bySku[sku].cop+=cop; bySku[sku].pl+=pl;
@@ -1777,7 +1777,22 @@ function doGet(e) {
     pricing.excess.totalDiff=Math.round(pricing.excess.totalDiff*100)/100;
     for(var pt in pricing){for(var pp in pricing[pt].byPlatform){pricing[pt].byPlatform[pp].diff=Math.round(pricing[pt].byPlatform[pp].diff*100)/100;for(var pc in pricing[pt].byPlatform[pp].byCompany){pricing[pt].byPlatform[pp].byCompany[pc].diff=Math.round(pricing[pt].byPlatform[pp].byCompany[pc].diff*100)/100;}}}
     var result = {summary:summary,byPlatform:byPlatform,byCompany:byCompany,byMonth:byMonth,byCategory:byCategory,daily:daily,topSkus:topSkus,platforms:platforms,companies:companies,pricing:pricing,timestamp:new Date().toISOString()};
-    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+    var jsonStr = JSON.stringify(result);
+    // Size check: if > 5MB, strip daily to save space
+    if (jsonStr.length > 5000000) {
+      result.daily = daily.slice(-90); // only last 90 days
+      result._truncated = true;
+      result._fullSize = jsonStr.length;
+      jsonStr = JSON.stringify(result);
+    }
+    // If STILL > 5MB, strip more
+    if (jsonStr.length > 5000000) {
+      result.daily = daily.slice(-30);
+      result.byCategory = {};
+      result.topSkus = topSkus.slice(0, 10);
+      jsonStr = JSON.stringify(result);
+    }
+    return ContentService.createTextOutput(jsonStr).setMimeType(ContentService.MimeType.JSON);
   } catch (err) { return _jsonResp({ error: err.message }); }
 }
 
