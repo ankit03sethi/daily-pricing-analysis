@@ -179,6 +179,8 @@ var DATA={},FILTERED_DATA={};
 var CHS={};
 var ACTIVE_TAB='overview';
 var DATA_CACHE={}; // cache API responses by days value
+var _activeController=null; // global AbortController to cancel pending fetches
+var _renderTimer=null; // debounce timer for renderAll
 
 function fmt(n){if(n==null||isNaN(n))return '0';return Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});}
 function fmtCur(n){return fmt(n);}
@@ -219,20 +221,24 @@ function loadData(){
     .catch(function(e){clearTimeout(tid);onErr((e.name==='AbortError'?'Timeout (180s).':'Fetch failed: '+e.message));});
 }
 
-// ===== SILENT AUTO-REFRESH (every 60s) =====
+// ===== SILENT AUTO-REFRESH (every 1 min, soft — skips if modal open or already refreshing) =====
 var _autoRefreshTimer=null;
 function startAutoRefresh(){
   if(_autoRefreshTimer)return;
-  _autoRefreshTimer=setInterval(silentRefresh,300000); // every 5 minutes
+  _autoRefreshTimer=setInterval(silentRefresh,60000); // every 1 minute
 }
 function silentRefresh(){
+  // Soft refresh: skip if already refreshing or if drill-down modal is open
   if(_refreshing)return;
+  var modal=document.getElementById('modalOverlay');
+  if(modal&&modal.classList.contains('show'))return;
   _refreshing=true;
-  // Refresh the current view's data
   var daysVal=_currentDays;
   var refreshUrl=daysVal?API_URL+'?days='+daysVal:API_URL;
+  if(_activeController){try{_activeController.abort();}catch(e){}}
   var controller=new AbortController();
-  var tid=setTimeout(function(){controller.abort();_refreshing=false;},120000);
+  _activeController=controller;
+  var tid=setTimeout(function(){try{controller.abort();}catch(e){}_refreshing=false;},60000);
   fetch(refreshUrl,{redirect:'follow',signal:controller.signal})
     .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
     .then(function(text){
@@ -247,26 +253,35 @@ function silentRefresh(){
         var cacheKey=daysVal?'_bg_'+daysVal:'all';
         DATA_CACHE[cacheKey]=d;
         if(!daysVal)DATA_CACHE['all']=d;
-        DATA=d;FILTERED_DATA=d;renderAll();
-        document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
+        DATA=d;FILTERED_DATA=d;renderAllDebounced();
+        document.getElementById('lastUp').textContent='Auto-updated: '+new Date().toLocaleString()+' | Data: '+(d.timestamp||'');
       }catch(e){}
     })
     .catch(function(e){clearTimeout(tid);_refreshing=false;});
 }
 
-// Force refresh (clears cache, re-fetches but preserves filters)
+// Force refresh (clears cache for current view, re-fetches with current days param)
 function forceRefresh(){
   if(_refreshing)return;
-  DATA_CACHE={};
   _refreshing=true;
   var btn=document.querySelector('.fbtn.ref');
   if(btn){btn.textContent='Refreshing...';btn.style.opacity='0.6';}
+  function resetBtn(){_refreshing=false;if(btn){btn.textContent='Refresh';btn.style.opacity='1';}}
+  // Use current days param so we only fetch the selected date range (not all 120K+ rows)
+  var daysVal=_currentDays;
+  var fetchUrl=daysVal?API_URL+'?days='+daysVal+'&nocache=1':API_URL+'?nocache=1';
+  var cacheKey=daysVal?'_bg_'+daysVal:'all';
+  // Clear only the current cache key so it re-fetches
+  delete DATA_CACHE[cacheKey];
+  if(_activeController){try{_activeController.abort();}catch(e){}}
   var controller=new AbortController();
-  var tid=setTimeout(function(){controller.abort();_refreshing=false;if(btn){btn.textContent='Refresh';btn.style.opacity='1';}},120000);
-  fetch(API_URL+'?nocache=1',{redirect:'follow',signal:controller.signal})
+  _activeController=controller;
+  // Hard 60s timeout — always resets button
+  var tid=setTimeout(function(){try{controller.abort();}catch(e){}resetBtn();},60000);
+  fetch(fetchUrl,{redirect:'follow',signal:controller.signal})
     .then(function(r){clearTimeout(tid);if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
     .then(function(text){
-      _refreshing=false;if(btn){btn.textContent='Refresh';btn.style.opacity='1';}
+      resetBtn();
       if(!text||text.trim().length===0)return;
       if(text.trim().charAt(0)==='<')return;
       try{
@@ -274,12 +289,12 @@ function forceRefresh(){
         if(d.error)return;
         _expandPricing(d.pricing);
         _expandDaily(d.daily);
-            DATA_CACHE['all']=d;
-        applyDateFilter();
+        DATA_CACHE[cacheKey]=d;
+        DATA=d;FILTERED_DATA=d;renderAllDebounced();
         document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
       }catch(e){}
     })
-    .catch(function(e){clearTimeout(tid);_refreshing=false;if(btn){btn.textContent='Refresh';btn.style.opacity='1';}});
+    .catch(function(e){clearTimeout(tid);resetBtn();});
 }
 
 function onErr(msg){document.getElementById('loader').innerHTML='<div style="color:#dc2f02;font-size:14px">'+msg+'</div><br><a href="'+API_URL+'" target="_blank" style="color:#4fc3f7">Test API directly</a>';}
@@ -364,12 +379,15 @@ var _currentDays='';
 function applyDateFilter(){
   var daysVal=document.getElementById('fDateRange')?document.getElementById('fDateRange').value:'';
   _currentDays=daysVal;
+  // Abort any pending fetch before starting a new one
+  if(_activeController){try{_activeController.abort();}catch(e){}}
   // "All Time" — use cached all-time data directly
   if(daysVal===''){
     var src=DATA_CACHE['all'];
     if(src){_expandPricing(src.pricing);_expandDaily(src.daily);DATA=src;FILTERED_DATA=src;renderAll();return;}
     // All-time not cached yet — fetch it
-    fetch(API_URL,{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
+    var ctrl=new AbortController();_activeController=ctrl;
+    fetch(API_URL,{redirect:'follow',signal:ctrl.signal}).then(function(r){return r.ok?r.text():null;}).then(function(text){
       if(!text||_currentDays!=='')return;try{var d=JSON.parse(text);_expandPricing(d.pricing);_expandDaily(d.daily);DATA_CACHE['all']=d;DATA=d;FILTERED_DATA=d;buildFilters();renderAll();}catch(e){}
     }).catch(function(){});
     return;
@@ -402,11 +420,12 @@ function applyDateFilter(){
     DATA=fd;FILTERED_DATA=fd;renderAll();
   }
   // Fetch accurate server-filtered data (with correct byPlatform/byCompany/pricing breakdowns)
-  fetch(API_URL+'?days='+daysVal,{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
+  var ctrl2=new AbortController();_activeController=ctrl2;
+  fetch(API_URL+'?days='+daysVal,{redirect:'follow',signal:ctrl2.signal}).then(function(r){return r.ok?r.text():null;}).then(function(text){
     if(!text||_currentDays!==daysVal)return;try{
       var d=JSON.parse(text);_expandPricing(d.pricing);_expandDaily(d.daily);
       DATA_CACHE[bgKey]=d;
-      DATA=d;FILTERED_DATA=d;renderAll();
+      DATA=d;FILTERED_DATA=d;renderAllDebounced();
     }catch(e){}
   }).catch(function(){});
 }
@@ -457,6 +476,11 @@ function renderAll(){
   renderPlatform();
   renderCompany();
   renderCategory();
+}
+// Debounced version — prevents rapid Chart.js destroy/recreate when multiple fetches resolve
+function renderAllDebounced(){
+  if(_renderTimer)clearTimeout(_renderTimer);
+  _renderTimer=setTimeout(renderAll,200);
 }
 
 // ===== SUMMARY CARDS =====
