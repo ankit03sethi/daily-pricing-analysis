@@ -299,8 +299,7 @@ function silentRefresh(){
         var d=JSON.parse(text);
         if(d.error)return;
         _expandPricing(d.pricing);
-        d.dailyDetail=_expandDailyDetail(d.dailyDetail);
-        DATA_CACHE['all']=d;
+            DATA_CACHE['all']=d;
         // Preserve current filter state — just re-apply filters on new data
         applyDateFilter();
         document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
@@ -328,8 +327,7 @@ function forceRefresh(){
         var d=JSON.parse(text);
         if(d.error)return;
         _expandPricing(d.pricing);
-        d.dailyDetail=_expandDailyDetail(d.dailyDetail);
-        DATA_CACHE['all']=d;
+            DATA_CACHE['all']=d;
         applyDateFilter();
         document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
       }catch(e){}
@@ -342,8 +340,7 @@ function onErr(msg){document.getElementById('loader').innerHTML='<div style="col
 function onData(d){
   if(d.error){onErr(d.error);return;}
   _expandPricing(d.pricing);
-  d.dailyDetail=_expandDailyDetail(d.dailyDetail);
-  DATA=d;FILTERED_DATA=d;
+DATA=d;FILTERED_DATA=d;
   document.getElementById('loader').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('lastUp').textContent='Updated: '+new Date().toLocaleString()+' | Data timestamp: '+(d.timestamp||'');
@@ -392,15 +389,11 @@ function applyDateFilter(){
   filteredDaily.forEach(function(d){sm.totalOrders+=d.orders;sm.totalQty+=d.qty;sm.grossReceived+=d.gross;sm.netReceived+=d.net;sm.taxAmount+=(d.tax||0);sm.cop+=d.cop;sm.pl+=d.pl;});
   sm.avgOrderValue=sm.totalOrders>0?sm.grossReceived/sm.totalOrders:0;
   sm.margin=sm.grossReceived>0?(sm.pl/sm.grossReceived*100):0;
-  // Re-aggregate byPlatform and byCompany from dailyDetail (date+platform+company granularity)
-  var filteredByPlatform={},filteredByCompany={},seenPlatOrd={},seenCompOrd={};
-  var dd=(src.dailyDetail||[]).filter(function(d){return d.date>=startDate&&d.date<=endDate;});
-  dd.forEach(function(d){
-    var p=d.platform,c=d.company;
-    if(!filteredByPlatform[p]){filteredByPlatform[p]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};}
-    filteredByPlatform[p].orders+=d.orders;filteredByPlatform[p].qty+=d.qty;filteredByPlatform[p].gross+=d.gross;filteredByPlatform[p].net+=d.net;filteredByPlatform[p].tax+=d.tax;filteredByPlatform[p].cop+=d.cop;filteredByPlatform[p].pl+=d.pl;
-    if(!filteredByCompany[c]){filteredByCompany[c]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};}
-    filteredByCompany[c].orders+=d.orders;filteredByCompany[c].qty+=d.qty;filteredByCompany[c].gross+=d.gross;filteredByCompany[c].net+=d.net;filteredByCompany[c].tax+=d.tax;filteredByCompany[c].cop+=d.cop;filteredByCompany[c].pl+=d.pl;
+  // Re-aggregate byPlatform and byCompany from daily entries (bp/bc embedded)
+  var filteredByPlatform={},filteredByCompany={};
+  filteredDaily.forEach(function(d){
+    if(d.bp){for(var p in d.bp){var v=d.bp[p];if(!filteredByPlatform[p])filteredByPlatform[p]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};filteredByPlatform[p].orders+=v.o;filteredByPlatform[p].qty+=v.q;filteredByPlatform[p].gross+=v.g;filteredByPlatform[p].net+=v.n;filteredByPlatform[p].tax+=v.t;filteredByPlatform[p].cop+=v.c;filteredByPlatform[p].pl+=v.p;}}
+    if(d.bc){for(var c in d.bc){var v=d.bc[c];if(!filteredByCompany[c])filteredByCompany[c]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0};filteredByCompany[c].orders+=v.o;filteredByCompany[c].qty+=v.q;filteredByCompany[c].gross+=v.g;filteredByCompany[c].net+=v.n;filteredByCompany[c].tax+=v.t;filteredByCompany[c].cop+=v.c;filteredByCompany[c].pl+=v.p;}}
   });
   // Filter pricing rows by date
   var filteredPricing=null;
@@ -419,10 +412,10 @@ function applyDateFilter(){
       }
     });
   }
-  // Build filtered data object (use re-aggregated byPlatform/byCompany from dailyDetail, override summary & daily & pricing)
-  var useBP=(dd.length>0)?filteredByPlatform:src.byPlatform;
-  var useBC=(dd.length>0)?filteredByCompany:src.byCompany;
-  DATA={summary:sm,byPlatform:useBP,byCompany:useBC,byMonth:src.byMonth,byCategory:src.byCategory,daily:filteredDaily,dailyDetail:dd,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,pricing:filteredPricing,timestamp:src.timestamp};
+  // Build filtered data object (use re-aggregated byPlatform/byCompany from daily bp/bc)
+  var useBP=(Object.keys(filteredByPlatform).length>0)?filteredByPlatform:src.byPlatform;
+  var useBC=(Object.keys(filteredByCompany).length>0)?filteredByCompany:src.byCompany;
+  DATA={summary:sm,byPlatform:useBP,byCompany:useBC,byMonth:src.byMonth,byCategory:src.byCategory,daily:filteredDaily,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,pricing:filteredPricing,timestamp:src.timestamp};
   FILTERED_DATA=DATA;
   renderAll();
 }
