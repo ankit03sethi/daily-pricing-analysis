@@ -621,15 +621,7 @@ function renderDrillPlatforms(){
 function drillToPlatform(plat){
   DM.level=2;DM.platform=plat||'ALL';
   var isPricing=(DM.type==='short'||DM.type==='excess'||DM.type==='equal');
-  // For non-pricing cards with a specific platform selected, skip to table (company data not available per-platform)
-  if(!isPricing&&DM.platform!=='ALL'){
-    DM.level=3;DM.company='ALL';
-    document.getElementById('modalTitle').textContent=DM.label+' - '+DM.platform+' - Details';
-    document.getElementById('modalNav').style.display='flex';
-    document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread" id="modalBread"><span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span></div>';
-    renderDrillTable();
-    return;
-  }
+  // Skip logic removed to allow Company drill-down
   document.getElementById('modalTitle').textContent=DM.label+' - '+(DM.platform)+' - Companies';
   document.getElementById('modalNav').style.display='flex';
   document.getElementById('modalNav').innerHTML='<button class="modal-back" onclick="modalGoBack()">&#9664; Back</button><div class="modal-bread" id="modalBread"><span>'+DM.label+'</span> &rarr; <span>'+DM.platform+'</span></div>';
@@ -659,10 +651,15 @@ function renderDrillCompanies(){
     }
     DM.companies=companies;
   } else {
-    // ALL platforms: show global company breakdown
-    var bc=FILTERED_DATA.byCompany||{};
     var compMap={};
-    for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
+    if(DM.platform==='ALL'){
+      var bc=FILTERED_DATA.byCompany||{};
+      for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
+    }else{
+      var bp=FILTERED_DATA.byPlatform||{};
+      var bc=(bp[DM.platform]&&bp[DM.platform].byCompany)?bp[DM.platform].byCompany:{};
+      for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
+    }
     var totalVal=0;for(var k in compMap)totalVal+=compMap[k];
     h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmtMetric(totalVal,DM.type)+'</div></div>';
     var sorted=Object.keys(compMap).sort(function(a,b){return compMap[b]-compMap[a];});

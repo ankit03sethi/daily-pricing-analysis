@@ -1759,9 +1759,12 @@ function doGet(e) {
       }
       if (!seenOrders[unique]) { seenOrders[unique]=true; summary.totalOrders++; }
       summary.totalQty+=qty; summary.grossReceived+=gross; summary.netReceived+=net; summary.taxAmount+=tax; summary.cop+=cop; summary.pl+=pl;
-      if (!byPlatform[platform]) { byPlatform[platform]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0}; seenByPlatform[platform]={}; }
-      if (!seenByPlatform[platform][unique]) { seenByPlatform[platform][unique]=true; byPlatform[platform].orders++; }
+      if (!byPlatform[platform]) { byPlatform[platform]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0,byCompany:{}}; seenByPlatform[platform]={}; }
+      if (!byPlatform[platform].byCompany[company]) { byPlatform[platform].byCompany[company]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0}; }
+      if (!seenByPlatform[platform]['p_'+unique]) { seenByPlatform[platform]['p_'+unique]=true; byPlatform[platform].orders++; }
+      if (!seenByPlatform[platform]['c_'+company+'_'+unique]) { seenByPlatform[platform]['c_'+company+'_'+unique]=true; byPlatform[platform].byCompany[company].orders++; }
       byPlatform[platform].qty+=qty; byPlatform[platform].gross+=gross; byPlatform[platform].net+=net; byPlatform[platform].tax+=tax; byPlatform[platform].cop+=cop; byPlatform[platform].pl+=pl;
+      byPlatform[platform].byCompany[company].qty+=qty; byPlatform[platform].byCompany[company].gross+=gross; byPlatform[platform].byCompany[company].net+=net; byPlatform[platform].byCompany[company].tax+=tax; byPlatform[platform].byCompany[company].cop+=cop; byPlatform[platform].byCompany[company].pl+=pl;
       if (!byCompany[company]) { byCompany[company]={orders:0,qty:0,gross:0,net:0,tax:0,cop:0,pl:0}; seenByCompany[company]={}; }
       if (!seenByCompany[company][unique]) { seenByCompany[company][unique]=true; byCompany[company].orders++; }
       byCompany[company].qty+=qty; byCompany[company].gross+=gross; byCompany[company].net+=net; byCompany[company].tax+=tax; byCompany[company].cop+=cop; byCompany[company].pl+=pl;
@@ -1800,7 +1803,7 @@ function doGet(e) {
     var skuList = []; for (var k in bySku) skuList.push(bySku[k]);
     skuList.sort(function(a,b){return b.gross-a.gross;}); var topSkus = skuList.slice(0, 20);
     var platforms = Object.keys(byPlatform).sort(); var companies = Object.keys(byCompany).sort();
-    _roundObj(summary); for(var k in byPlatform)_roundObj(byPlatform[k]); for(var k in byCompany)_roundObj(byCompany[k]);
+    _roundObj(summary); for(var k in byPlatform){_roundObj(byPlatform[k]); for(var c in byPlatform[k].byCompany)_roundObj(byPlatform[k].byCompany[c]);} for(var k in byCompany)_roundObj(byCompany[k]);
     for(var i=0;i<byMonth.length;i++)_roundObj(byMonth[i]); for(var k in byCategory)_roundObj(byCategory[k]);
     for(var i=0;i<topSkus.length;i++)_roundObj(topSkus[i]);
     // Round daily
