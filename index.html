@@ -132,10 +132,6 @@ tr:hover td{background:#1f2b47}
   <select id="fCompany" onchange="applyAllFilters()"><option value="">All Companies</option></select>
   <select id="fMasterSku" onchange="applyAllFilters()"><option value="">All Master SKUs</option></select>
   <select id="fCategory" onchange="applyAllFilters()"><option value="">All Categories</option></select>
-  <select id="fSubCategory" onchange="applyAllFilters()"><option value="">All SubCategories</option></select>
-  <select id="fColor" onchange="applyAllFilters()"><option value="">All Colors</option></select>
-  <select id="fProduct" onchange="applyAllFilters()"><option value="">All Products</option></select>
-  <select id="fSku" onchange="applyAllFilters()"><option value="">All SKU IDs</option></select>
   <button class="fbtn clr" onclick="clearAllFilters()">Clear</button>
   <button class="fbtn ref" onclick="forceRefresh()">Refresh</button>
   <button class="fbtn dl" onclick="downloadCSV()">Download CSV</button>
@@ -291,9 +287,9 @@ function buildFilters(){
   var mSel=document.getElementById('fMonth');
   if(mSel){mSel.innerHTML='<option value="">All Months</option>';(src.byMonth||[]).forEach(function(m){mSel.innerHTML+='<option value="'+m.month+'">'+m.month+'</option>';});}
   // Other filters
-  var selIds=['fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
-  var dataKeys=['platforms','companies','masterSkus','categories','subCategories','colors','products','skuIds'];
-  var labels=['All Platforms','All Companies','All Master SKUs','All Categories','All SubCategories','All Colors','All Products','All SKU IDs'];
+  var selIds=['fPlatform','fCompany','fMasterSku','fCategory'];
+  var dataKeys=['platforms','companies','masterSkus','categories'];
+  var labels=['All Platforms','All Companies','All Master SKUs','All Categories'];
   for(var i=0;i<selIds.length;i++){
     var sel=document.getElementById(selIds[i]);
     if(!sel)continue;
@@ -345,9 +341,21 @@ function applyDateFilter(){
   // Recompute pricing from daily entries (sc=short count, sd=short diff, ec=excess count, ed=excess diff, qc=equal count)
   var fp={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}};
   for(var i=0;i<filtDaily.length;i++){var dd=filtDaily[i];fp.short.count+=(dd.sc||0);fp.short.totalDiff+=(dd.sd||0);fp.excess.count+=(dd.ec||0);fp.excess.totalDiff+=(dd.ed||0);fp.equal.count+=(dd.qc||0);}
-  // Render instantly — all client-side, no API call needed
+  // Render instantly with client-side data
   var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,pricing:fp,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
   DATA=fd; FILTERED_DATA=fd; renderAll();
+  // Background fetch for accurate date-filtered byPlatform/byCompany/pricing (for drill-down)
+  var bgKey='_bg_'+daysVal;
+  if(DATA_CACHE[bgKey]){var bd=DATA_CACHE[bgKey];fd.byPlatform=bd.byPlatform;fd.byCompany=bd.byCompany;fd.byCategory=bd.byCategory;fd.pricing=bd.pricing;fd.topSkus=bd.topSkus;if(bd.summary)fd.summary=bd.summary;DATA=fd;FILTERED_DATA=fd;renderAll();return;}
+  fetch(API_URL+'?days='+daysVal,{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
+    if(!text||_currentDays!==daysVal)return;try{
+      var d=JSON.parse(text);_expandPricing(d.pricing);_expandDaily(d.daily);
+      DATA_CACHE[bgKey]=d;
+      fd.byPlatform=d.byPlatform||fd.byPlatform;fd.byCompany=d.byCompany||fd.byCompany;fd.byCategory=d.byCategory||fd.byCategory;fd.pricing=d.pricing||fd.pricing;fd.topSkus=d.topSkus||fd.topSkus;
+      if(d.summary)fd.summary=d.summary;
+      DATA=fd;FILTERED_DATA=fd;renderAll();
+    }catch(e){}
+  }).catch(function(){});
 }
 
 function applyAllFilters(){
@@ -383,7 +391,7 @@ function applyAllFilters(){
 }
 
 function clearAllFilters(){
-  var selIds=['fMonth','fPlatform','fCompany','fMasterSku','fCategory','fSubCategory','fColor','fProduct','fSku'];
+  var selIds=['fMonth','fPlatform','fCompany','fMasterSku','fCategory'];
   for(var i=0;i<selIds.length;i++){var s=document.getElementById(selIds[i]);if(s)s.value='';}
   FILTERED_DATA=DATA;renderAll();
 }
@@ -630,9 +638,7 @@ function openModal(type,label){
   DM={type:type,label:label,level:1,platform:'',company:'',data:null,companies:null};
   var isPricing=(type==='short'||type==='excess'||type==='equal');
   if(isPricing){
-    // Always use all-time pricing data (has byPlatform breakdown)
-    var allPricing=DATA_CACHE['all']?DATA_CACHE['all'].pricing:FILTERED_DATA.pricing;
-    DM.data=allPricing?allPricing[type]:null;
+    DM.data=FILTERED_DATA.pricing?FILTERED_DATA.pricing[type]:null;
     if(!DM.data)return;
   } else {
     DM.data=FILTERED_DATA;
