@@ -214,14 +214,6 @@ function loadData(){
         DATA_CACHE[cacheKey]=d;
         onDataDirect(d,cacheKey);
         startAutoRefresh();
-        // Load all-time data in background AFTER a delay to avoid overloading Apps Script
-        if(defaultDays){
-          setTimeout(function(){
-            fetch(API_URL,{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(t){
-              if(!t)return;try{var ad=JSON.parse(t);_expandPricing(ad.pricing);_expandDaily(ad.daily);DATA_CACHE['all']=ad;buildFilters();}catch(e){}
-            }).catch(function(){});
-          },15000); // wait 15s after initial load
-        }
       }catch(e){onErr('JSON parse error: '+e.message);}
     })
     .catch(function(e){clearTimeout(tid);onErr((e.name==='AbortError'?'Timeout (180s).':'Fetch failed: '+e.message));});
@@ -231,7 +223,7 @@ function loadData(){
 var _autoRefreshTimer=null;
 function startAutoRefresh(){
   if(_autoRefreshTimer)return;
-  _autoRefreshTimer=setInterval(silentRefresh,60000);
+  _autoRefreshTimer=setInterval(silentRefresh,300000); // every 5 minutes
 }
 function silentRefresh(){
   if(_refreshing)return;
@@ -337,27 +329,34 @@ function buildFilters(){
     sel.innerHTML='<option value="">'+labels[i]+'</option>';
     for(var j=0;j<arr.length;j++){sel.innerHTML+='<option value="'+arr[j]+'">'+arr[j]+'</option>';}
   }
-  // Fetch extra filter values (SubCategory, Color, Product, SKU) from lightweight endpoint — delayed to avoid overloading
+  // Extra filters (SubCategory, Color, Product, SKU) load on-demand when clicked
   if(!_filtersLoaded){
     _filtersLoaded=true;
-    setTimeout(function(){
-      fetch(API_URL+'?mode=filters',{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
-        if(!text)return;try{
-          var f=JSON.parse(text);
-          var extraIds=['fSubCategory','fColor','fProduct','fSku'];
-          var extraKeys=['subCategories','colors','products','skus'];
-          var extraLabels=['All SubCategories','All Colors','All Products','All SKUs'];
-          for(var i=0;i<extraIds.length;i++){
-            var sel=document.getElementById(extraIds[i]);
-            if(!sel)continue;
-            var arr=f[extraKeys[i]]||[];
-            sel.innerHTML='<option value="">'+extraLabels[i]+'</option>';
-            for(var j=0;j<arr.length;j++){sel.innerHTML+='<option value="'+arr[j]+'">'+arr[j]+'</option>';}
-          }
-        }catch(e){}
-      }).catch(function(){});
-    },30000); // wait 30s — load filters after all-time data
+    var extraSelIds=['fSubCategory','fColor','fProduct','fSku'];
+    for(var ei=0;ei<extraSelIds.length;ei++){
+      var esel=document.getElementById(extraSelIds[ei]);
+      if(esel)esel.addEventListener('mousedown',_loadExtraFilters,{once:true});
+    }
   }
+}
+
+// Load extra filter values on-demand (first click on any extra dropdown)
+function _loadExtraFilters(){
+  fetch(API_URL+'?mode=filters',{redirect:'follow'}).then(function(r){return r.ok?r.text():null;}).then(function(text){
+    if(!text)return;try{
+      var f=JSON.parse(text);
+      var extraIds=['fSubCategory','fColor','fProduct','fSku'];
+      var extraKeys=['subCategories','colors','products','skus'];
+      var extraLabels=['All SubCategories','All Colors','All Products','All SKUs'];
+      for(var i=0;i<extraIds.length;i++){
+        var sel=document.getElementById(extraIds[i]);
+        if(!sel)continue;
+        var arr=f[extraKeys[i]]||[];
+        sel.innerHTML='<option value="">'+extraLabels[i]+'</option>';
+        for(var j=0;j<arr.length;j++){sel.innerHTML+='<option value="'+arr[j]+'">'+arr[j]+'</option>';}
+      }
+    }catch(e){}
+  }).catch(function(){});
 }
 
 // ===== DATE FILTER: fetches from API with ?days=X for correct drill-down data =====
