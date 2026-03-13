@@ -1613,13 +1613,14 @@ function doGet(e) {
     var now = new Date();
     // FILTERS MODE: lightweight endpoint returning unique filter values only
     if (e && e.parameter && e.parameter.mode === 'filters') {
-      var fColRanges = ['K2:K','P2:P','R2:R','S2:S','T2:T'];
+      // K=SKU ID, R=SubCategory, S=Color, T=Product
+      var fColRanges = ['K2:K','R2:R','S2:S','T2:T'];
       var fRanges = [];
       for (var i = 0; i < fColRanges.length; i++) fRanges.push("'" + tab + "'!" + fColRanges[i]);
       var fRes = Sheets.Spreadsheets.Values.batchGet(ssId, {ranges: fRanges, valueRenderOption: 'UNFORMATTED_VALUE'});
       var fVr = fRes.valueRanges;
       var uSkus={},uSubCats={},uColors={},uProducts={};
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 4; i++) {
         var vals = (fVr[i] && fVr[i].values) || [];
         for (var r = 0; r < vals.length; r++) {
           var v = String(vals[r][0] || '').trim();
