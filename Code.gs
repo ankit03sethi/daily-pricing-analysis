@@ -1704,7 +1704,7 @@ function doGet(e) {
       return ContentService.createTextOutput(JSON.stringify({rows:matchRows})).setMimeType(ContentService.MimeType.JSON);
     }
     // MAIN MODE: only fetch 11 summary columns (no detail columns)
-    var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','V2:V','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB'];
+    var colRanges = ['A2:A','C2:C','D2:D','E2:E','F2:F','G2:G','M2:M','O2:O','Q2:Q','R2:R','V2:V','W2:W','Y2:Y','Z2:Z','AA2:AA','AB2:AB','T2:T'];
     var ranges = [];
     for (var i = 0; i < colRanges.length; i++) ranges.push("'" + tab + "'!" + colRanges[i]);
     var res = Sheets.Spreadsheets.Values.batchGet(ssId, {ranges: ranges, valueRenderOption: 'UNFORMATTED_VALUE'});
@@ -1716,25 +1716,27 @@ function doGet(e) {
     }
     var cols = [];
     for (var c = 0; c < vr.length; c++) cols.push(vr[c].values || []);
-    // cols: 0=unique,1=year,2=month,3=date,4=platform,5=company,6=qty,7=masterSku,8=category,9=required,10=gross,11=taxAmt,12=net,13=cop,14=pl
+    // cols: 0=unique,1=year,2=month,3=date,4=platform,5=company,6=qty,7=masterSku,8=category,9=subCategory,10=required,11=gross,12=taxAmt,13=net,14=cop,15=pl,16=product
     var summary = {totalOrders:0,totalQty:0,grossReceived:0,netReceived:0,taxAmount:0,cop:0,pl:0};
-    var byPlatform={},byCompany={},byMonthMap={},byCategory={},bySku={},dailyMap={};
-    var seenOrders={},seenByPlatform={},seenByCompany={},seenByMonth={},seenByCategory={},seenByDaily={};
+    var byPlatform={},byCompany={},byMonthMap={},byCategory={},bySubCategory={},byProduct={},bySku={},dailyMap={};
+    var seenOrders={},seenByPlatform={},seenByCompany={},seenByMonth={},seenByCategory={},seenBySubCategory={},seenByProduct={},seenByDaily={};
     var pricing={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}};
     var uniqueMasterSkus={}, uniqueCategories={};
     for (var r = 0; r < maxRows; r++) {
       var unique = r < cols[0].length && cols[0][r].length > 0 ? cols[0][r][0] : '';
       if (!unique || String(unique).trim() === '') continue;
       var qty = _toNum(r < cols[6].length && cols[6][r].length > 0 ? cols[6][r][0] : 0);
-      var required = _toNum(r < cols[9].length && cols[9][r].length > 0 ? cols[9][r][0] : 0);
-      var gross = _toNum(r < cols[10].length && cols[10][r].length > 0 ? cols[10][r][0] : 0);
-      var tax = _toNum(r < cols[11].length && cols[11][r].length > 0 ? cols[11][r][0] : 0);
-      var net = _toNum(r < cols[12].length && cols[12][r].length > 0 ? cols[12][r][0] : 0);
-      var cop = _toNum(r < cols[13].length && cols[13][r].length > 0 ? cols[13][r][0] : 0);
-      var pl = _toNum(r < cols[14].length && cols[14][r].length > 0 ? cols[14][r][0] : 0);
+      var required = _toNum(r < cols[10].length && cols[10][r].length > 0 ? cols[10][r][0] : 0);
+      var gross = _toNum(r < cols[11].length && cols[11][r].length > 0 ? cols[11][r][0] : 0);
+      var tax = _toNum(r < cols[12].length && cols[12][r].length > 0 ? cols[12][r][0] : 0);
+      var net = _toNum(r < cols[13].length && cols[13][r].length > 0 ? cols[13][r][0] : 0);
+      var cop = _toNum(r < cols[14].length && cols[14][r].length > 0 ? cols[14][r][0] : 0);
+      var pl = _toNum(r < cols[15].length && cols[15][r].length > 0 ? cols[15][r][0] : 0);
       var platform = String(r < cols[4].length && cols[4][r].length > 0 ? cols[4][r][0] : '').trim() || 'Unknown';
       var company = String(r < cols[5].length && cols[5][r].length > 0 ? cols[5][r][0] : '').trim() || 'Unknown';
       var category = String(r < cols[8].length && cols[8][r].length > 0 ? cols[8][r][0] : '').trim() || 'Unknown';
+      var subCategory = String(r < cols[9].length && cols[9][r].length > 0 ? cols[9][r][0] : '').trim() || 'Unknown';
+      var product = String(r < cols[16].length && cols[16][r].length > 0 ? cols[16][r][0] : '').trim() || 'Unknown';
       var sku = String(r < cols[7].length && cols[7][r].length > 0 ? cols[7][r][0] : '').trim() || 'Unknown';
       if(sku && sku!=='Unknown') uniqueMasterSkus[sku]=1;
       if(category && category!=='Unknown') uniqueCategories[category]=1;
@@ -1772,6 +1774,12 @@ function doGet(e) {
       if (!byCategory[category]) { byCategory[category]={orders:0,qty:0,gross:0,net:0,cop:0,pl:0}; seenByCategory[category]={}; }
       if (!seenByCategory[category][unique]) { seenByCategory[category][unique]=true; byCategory[category].orders++; }
       byCategory[category].qty+=qty; byCategory[category].gross+=gross; byCategory[category].net+=net; byCategory[category].cop+=cop; byCategory[category].pl+=pl;
+      if (!bySubCategory[subCategory]) { bySubCategory[subCategory]={orders:0,qty:0,gross:0,net:0,cop:0,pl:0}; seenBySubCategory[subCategory]={}; }
+      if (!seenBySubCategory[subCategory][unique]) { seenBySubCategory[subCategory][unique]=true; bySubCategory[subCategory].orders++; }
+      bySubCategory[subCategory].qty+=qty; bySubCategory[subCategory].gross+=gross; bySubCategory[subCategory].net+=net; bySubCategory[subCategory].cop+=cop; bySubCategory[subCategory].pl+=pl;
+      if (!byProduct[product]) { byProduct[product]={orders:0,qty:0,gross:0,net:0,cop:0,pl:0}; seenByProduct[product]={}; }
+      if (!seenByProduct[product][unique]) { seenByProduct[product][unique]=true; byProduct[product].orders++; }
+      byProduct[product].qty+=qty; byProduct[product].gross+=gross; byProduct[product].net+=net; byProduct[product].cop+=cop; byProduct[product].pl+=pl;
       if (dateStr) {
         if (!dailyMap[dateStr]) { dailyMap[dateStr]={d:dateStr,o:0,q:0,g:0,n:0,t:0,c:0,p:0,sc:0,sd:0,ec:0,ed:0,qc:0}; seenByDaily[dateStr]={}; }
         if (!seenByDaily[dateStr][unique]) { seenByDaily[dateStr][unique]=true; dailyMap[dateStr].o++; }
@@ -1804,7 +1812,7 @@ function doGet(e) {
     skuList.sort(function(a,b){return b.gross-a.gross;}); var topSkus = skuList.slice(0, 20);
     var platforms = Object.keys(byPlatform).sort(); var companies = Object.keys(byCompany).sort();
     _roundObj(summary); for(var k in byPlatform){_roundObj(byPlatform[k]); for(var c in byPlatform[k].byCompany)_roundObj(byPlatform[k].byCompany[c]);} for(var k in byCompany)_roundObj(byCompany[k]);
-    for(var i=0;i<byMonth.length;i++)_roundObj(byMonth[i]); for(var k in byCategory)_roundObj(byCategory[k]);
+    for(var i=0;i<byMonth.length;i++)_roundObj(byMonth[i]); for(var k in byCategory)_roundObj(byCategory[k]); for(var k in bySubCategory)_roundObj(bySubCategory[k]); for(var k in byProduct)_roundObj(byProduct[k]);
     for(var i=0;i<topSkus.length;i++)_roundObj(topSkus[i]);
     // Round daily
     for(var i=0;i<daily.length;i++){var dd=daily[i];dd.o=Math.round(dd.o);dd.q=Math.round(dd.q);dd.g=Math.round(dd.g*100)/100;dd.n=Math.round(dd.n*100)/100;dd.t=Math.round(dd.t*100)/100;dd.c=Math.round(dd.c*100)/100;dd.p=Math.round(dd.p*100)/100;}
@@ -1813,7 +1821,7 @@ function doGet(e) {
     pricing.excess.totalDiff=Math.round(pricing.excess.totalDiff*100)/100;
     pricing.equal.totalDiff=Math.round(pricing.equal.totalDiff*100)/100;
     for(var pt in pricing){for(var pp in pricing[pt].byPlatform){pricing[pt].byPlatform[pp].diff=Math.round(pricing[pt].byPlatform[pp].diff*100)/100;for(var pc in pricing[pt].byPlatform[pp].byCompany){pricing[pt].byPlatform[pp].byCompany[pc].diff=Math.round(pricing[pt].byPlatform[pp].byCompany[pc].diff*100)/100;}}}
-    var result = {summary:summary,byPlatform:byPlatform,byCompany:byCompany,byMonth:byMonth,byCategory:byCategory,daily:daily,topSkus:topSkus,platforms:platforms,companies:companies,pricing:pricing,masterSkus:Object.keys(uniqueMasterSkus).sort(),categories:Object.keys(uniqueCategories).sort(),timestamp:new Date().toISOString()};
+    var result = {summary:summary,byPlatform:byPlatform,byCompany:byCompany,byMonth:byMonth,byCategory:byCategory,bySubCategory:bySubCategory,byProduct:byProduct,daily:daily,topSkus:topSkus,platforms:platforms,companies:companies,pricing:pricing,masterSkus:Object.keys(uniqueMasterSkus).sort(),categories:Object.keys(uniqueCategories).sort(),timestamp:new Date().toISOString()};
     var jsonStr = JSON.stringify(result);
     // Size check: if > 5MB, strip daily to save space
     if (jsonStr.length > 5000000) {

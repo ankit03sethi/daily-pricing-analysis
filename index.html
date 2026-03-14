@@ -170,6 +170,12 @@ tr:hover td{background:#1f2b47}
   <div class="ov-detail" id="subCategoryDetail"></div>
 </div>
 
+<button class="acc-btn" id="btn-product" onclick="toggleAcc('product')">PRODUCT <span id="arr-product">▼</span></button>
+<div class="acc-content" id="acc-product">
+  <div id="productCards"></div>
+  <div class="ov-detail" id="productDetail"></div>
+</div>
+
 <div class="ft" id="lastUp"></div>
 </div>
 
@@ -350,7 +356,7 @@ function applyDateFilter(){
     var filtMonths=Object.values(monthMap).sort(function(a,b){return a.month<b.month?-1:1;});
     var fp={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}};
     for(var i=0;i<filtDaily.length;i++){var dd=filtDaily[i];fp.short.count+=(dd.sc||0);fp.short.totalDiff+=(dd.sd||0);fp.excess.count+=(dd.ec||0);fp.excess.totalDiff+=(dd.ed||0);fp.equal.count+=(dd.qc||0);}
-    var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,pricing:fp,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,bySubCategory:src.bySubCategory,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
+    var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,pricing:fp,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,bySubCategory:src.bySubCategory,byProduct:src.byProduct,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
     DATA=fd;FILTERED_DATA=fd;renderAll();
   }
   // Fetch accurate server data
@@ -422,7 +428,7 @@ function renderPricing(){
 }
 
 // ===== OVERVIEW CARDS (Month, Platform, Company, Category) =====
-var _activeOvCard={platform:'',company:'',category:'',subCategory:''};
+var _activeOvCard={platform:'',company:'',category:'',subCategory:'',product:''};
 var OV_COLORS=['#4fc3f7','#39ff14','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee','#ff9800','#8bc34a'];
 
 function renderOverviewCards(){
@@ -430,6 +436,7 @@ function renderOverviewCards(){
   renderCompanyCards();
   renderCategoryCards();
   renderSubCategoryCards();
+  renderProductCards();
 }
 
 function _renderTableCard(section, dataObj, keys) {
@@ -502,6 +509,16 @@ function renderSubCategoryCards(){
   }
 }
 
+function renderProductCards(){
+  var bp=FILTERED_DATA.byProduct||{};
+  var keys=Object.keys(bp).sort(function(a,b){return (bp[b].gross||0)-(bp[a].gross||0);});
+  var el=document.getElementById('productCards');
+  if(el){
+    el.innerHTML=_renderTableCard('product',bp,keys);
+    if(_activeOvCard.product)_showOvDetail('product');
+  }
+}
+
 function toggleOvDetail(section,key){
   if(_activeOvCard[section]===key){
     _activeOvCard[section]='';
@@ -515,6 +532,7 @@ function toggleOvDetail(section,key){
   if(section==='company') renderCompanyCards();
   if(section==='category') renderCategoryCards();
   if(section==='subCategory') renderSubCategoryCards();
+  if(section==='product') renderProductCards();
 }
 
 function _showOvDetail(section){
@@ -555,6 +573,16 @@ function _showOvDetail(section){
   if(section==='subCategory'){
     var bc=FILTERED_DATA.bySubCategory||{};
     var c=bc[key];
+    if(!c){detailEl.innerHTML='';return;}
+    var margin=c.gross>0?(c.pl/c.gross*100):0;
+    var h='<div class="tbox"><h3>'+key+' Details</h3><div class="twrap"><table><thead><tr><th>Orders</th><th>Qty</th><th>Gross</th><th>Net</th><th>COP</th><th>P/L</th><th>Margin</th></tr></thead><tbody><tr><td>'+fmt(c.orders)+'</td><td>'+fmt(c.qty)+'</td><td>'+fmtCur(c.gross)+'</td><td>'+fmtCur(c.net)+'</td><td>'+fmtCur(c.cop)+'</td><td class="'+(c.pl>=0?'profit':'loss')+'">'+fmtCur(c.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr></tbody></table></div></div>';
+    detailEl.innerHTML=h;
+    return;
+  }
+
+  if(section==='product'){
+    var bp=FILTERED_DATA.byProduct||{};
+    var c=bp[key];
     if(!c){detailEl.innerHTML='';return;}
     var margin=c.gross>0?(c.pl/c.gross*100):0;
     var h='<div class="tbox"><h3>'+key+' Details</h3><div class="twrap"><table><thead><tr><th>Orders</th><th>Qty</th><th>Gross</th><th>Net</th><th>COP</th><th>P/L</th><th>Margin</th></tr></thead><tbody><tr><td>'+fmt(c.orders)+'</td><td>'+fmt(c.qty)+'</td><td>'+fmtCur(c.gross)+'</td><td>'+fmtCur(c.net)+'</td><td>'+fmtCur(c.cop)+'</td><td class="'+(c.pl>=0?'profit':'loss')+'">'+fmtCur(c.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr></tbody></table></div></div>';
