@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Pricing Analysis</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',sans-serif;background:#1a1a2e;color:#eee;padding:12px;min-height:100vh;overflow-x:hidden}
@@ -83,6 +84,14 @@ tr:hover td{background:#1f2b47}
 .ov-card .ov-row{display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-top:2px}
 .ov-card .ov-row .ov-val{font-weight:600;color:#fff}
 .ov-detail{margin-bottom:14px}
+.acc-btn{background:#0d1a30;color:#e09f3e;border:1px solid #444;padding:12px 15px;width:100%;text-align:left;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;margin-top:10px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;transition:.2s;text-transform:uppercase;}
+.acc-btn:hover{background:#1a3055;border-color:#4fc3f7;}
+.acc-btn.active{border-color:#4fc3f7;color:#4fc3f7;border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0;background:#1a3055;}
+.acc-btn span{font-size:10px;color:#888;transition:.2s;}
+.acc-btn.active span{transform:rotate(180deg);color:#4fc3f7;}
+.acc-content{display:none;background:#0d1a30;border:1px solid #4fc3f7;border-top:none;border-bottom-left-radius:6px;border-bottom-right-radius:6px;padding:15px;margin-bottom:10px;}
+.acc-content.show{display:block;}
+.chart-container{position:relative;height:250px;width:100%;margin-bottom:15px;background:#0a0f1e;border-radius:8px;padding:10px;border:1px solid #222;}
 @media(max-width:768px){.cards{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}}
 </style>
 </head>
@@ -137,27 +146,32 @@ tr:hover td{background:#1f2b47}
 <!-- OVERVIEW SECTION -->
 <div class="section-title" style="color:#e09f3e;font-size:13px;margin-top:8px">OVERVIEW</div>
 
-<div class="ov-heading">MONTH</div>
-<div class="cards" id="monthCards"></div>
-<div class="ov-detail" id="monthDetail"></div>
+<button class="acc-btn" id="btn-platform" onclick="toggleAcc('platform')">PLATFORM <span id="arr-platform">▼</span></button>
+<div class="acc-content" id="acc-platform">
+  <div class="chart-container"><canvas id="chart-platform"></canvas></div>
+  <div class="cards" id="platformCards"></div>
+  <div class="ov-detail" id="platformDetail"></div>
+</div>
 
-<div class="ov-heading">PLATFORM</div>
-<div class="cards" id="platformCards"></div>
-<div class="ov-detail" id="platformDetail"></div>
+<button class="acc-btn" id="btn-company" onclick="toggleAcc('company')">COMPANY <span id="arr-company">▼</span></button>
+<div class="acc-content" id="acc-company">
+  <div class="chart-container"><canvas id="chart-company"></canvas></div>
+  <div class="cards" id="companyCards"></div>
+  <div class="ov-detail" id="companyDetail"></div>
+</div>
 
-<div class="ov-heading">COMPANY</div>
-<div class="cards" id="companyCards"></div>
-<div class="ov-detail" id="companyDetail"></div>
-
-<div class="ov-heading">CATEGORY</div>
-<div class="cards" id="categoryCards"></div>
-<div class="ov-detail" id="categoryDetail"></div>
+<button class="acc-btn" id="btn-category" onclick="toggleAcc('category')">CATEGORY <span id="arr-category">▼</span></button>
+<div class="acc-content" id="acc-category">
+  <div class="chart-container"><canvas id="chart-category"></canvas></div>
+  <div class="cards" id="categoryCards"></div>
+  <div class="ov-detail" id="categoryDetail"></div>
+</div>
 
 <div class="ft" id="lastUp"></div>
 </div>
 
 <script>
-var API_URL='https://script.google.com/macros/s/AKfycbwISTanvllYApmtJv4SGJSV7oARipwg_u1pMsclB7HWUarr-Nloeax5YxPwcU5C7VB2MA/exec';
+var API_URL='https://script.google.com/macros/s/AKfycbx1o9v2dSq8ytAZPiP26AjRAdadDSX0iZCwdqE6c0TVNwHacqAPHB7IT22wnATxPFNi/exec';
 
 var DATA={},FILTERED_DATA={};
 var DATA_CACHE={};
@@ -405,14 +419,69 @@ function renderPricing(){
 }
 
 // ===== OVERVIEW CARDS (Month, Platform, Company, Category) =====
-var _activeOvCard={month:'',platform:'',company:'',category:''};
+var _activeOvCard={platform:'',company:'',category:''};
 var OV_COLORS=['#4fc3f7','#39ff14','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee','#ff9800','#8bc34a'];
+var _charts={platform:null,company:null,category:null};
+
+function toggleAcc(sec){
+  var btn=document.getElementById('btn-'+sec);
+  var content=document.getElementById('acc-'+sec);
+  if(btn.classList.contains('active')){
+    btn.classList.remove('active');
+    content.classList.remove('show');
+  }else{
+    btn.classList.add('active');
+    content.classList.add('show');
+    renderOverviewChart(sec);
+  }
+}
 
 function renderOverviewCards(){
-  renderMonthCards();
   renderPlatformCards();
   renderCompanyCards();
   renderCategoryCards();
+}
+
+function renderOverviewChart(section){
+  var canvas = document.getElementById('chart-'+section);
+  if(!canvas)return;
+  var ctx = canvas.getContext('2d');
+  
+  var dataObj = {};
+  if(section==='platform') dataObj = FILTERED_DATA.byPlatform||{};
+  else if(section==='company') dataObj = FILTERED_DATA.byCompany||{};
+  else if(section==='category') dataObj = FILTERED_DATA.byCategory||{};
+  
+  var keys = Object.keys(dataObj).sort(function(a,b){return dataObj[b].gross - dataObj[a].gross;});
+  var labels = []; var grossData = []; var plData = [];
+  
+  for(var i=0;i<keys.length;i++){
+    labels.push(keys[i].length>15?keys[i].substring(0,12)+'...':keys[i]);
+    grossData.push(dataObj[keys[i]].gross);
+    plData.push(dataObj[keys[i]].pl);
+  }
+  
+  if(_charts[section]) _charts[section].destroy();
+  
+  _charts[section] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Gross Revenue', data: grossData, backgroundColor: '#4fc3f7', borderRadius: 4, order: 2 },
+        { label: 'Profit / Loss', data: plData, backgroundColor: plData.map(function(v){return v>=0?'#39ff14':'#dc2f02';}), borderRadius: 4, order: 1 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#aaa' } } },
+      scales: {
+        x: { ticks: { color: '#ccc', font:{size:10} }, grid: { color: '#222' } },
+        y: { ticks: { color: '#ccc', callback: function(v){return '₹'+(v>=1000?Math.round(v/1000)+'k':v);} }, grid: { color: '#222' } }
+      }
+    }
+  });
 }
 
 function _ovCard(name,orders,gross,pl,margin,color,section,key){
@@ -421,23 +490,12 @@ function _ovCard(name,orders,gross,pl,margin,color,section,key){
   var mClass=margin>=0?'profit':'loss';
   var isActive=_activeOvCard[section]===key;
   return '<div class="ov-card'+(isActive?' active':'')+'" style="border-left-color:'+color+'" onclick="toggleOvDetail(\''+section+'\',\''+key.replace(/'/g,"\\'")+'\')">'
-    +'<div class="ov-name">'+name+'</div>'
+    +'<div class="ov-name" title="'+name.replace(/"/g,"&quot;")+'">'+name+'</div>'
     +'<div class="ov-row"><span>Orders</span><span class="ov-val">'+fmt(orders)+'</span></div>'
     +'<div class="ov-row"><span>Revenue</span><span class="ov-val">'+fmtCur(gross)+'</span></div>'
     +'<div class="ov-row"><span>Profit</span><span class="ov-val '+plClass+'">'+plSign+fmtCur(pl)+'</span></div>'
     +'<div class="ov-row"><span>Margin</span><span class="ov-val '+mClass+'">'+fmtPct(margin)+'</span></div>'
     +'</div>';
-}
-
-function renderMonthCards(){
-  var months=(FILTERED_DATA.byMonth||[]).slice().sort(function(a,b){return b.gross-a.gross;});
-  var h='';
-  for(var i=0;i<months.length;i++){
-    var m=months[i];var margin=m.gross>0?(m.pl/m.gross*100):0;
-    h+=_ovCard(m.month,m.orders,m.gross,m.pl,margin,OV_COLORS[i%OV_COLORS.length],'month',m.month);
-  }
-  document.getElementById('monthCards').innerHTML=h;
-  if(_activeOvCard.month)_showOvDetail('month');
 }
 
 function renderPlatformCards(){
@@ -449,6 +507,7 @@ function renderPlatformCards(){
     h+=_ovCard(keys[i],p.orders,p.gross,p.pl,margin,OV_COLORS[i%OV_COLORS.length],'platform',keys[i]);
   }
   document.getElementById('platformCards').innerHTML=h;
+  if(document.getElementById('acc-platform').classList.contains('show')) renderOverviewChart('platform');
   if(_activeOvCard.platform)_showOvDetail('platform');
 }
 
@@ -461,6 +520,7 @@ function renderCompanyCards(){
     h+=_ovCard(keys[i],c.orders,c.gross,c.pl,margin,OV_COLORS[i%OV_COLORS.length],'company',keys[i]);
   }
   document.getElementById('companyCards').innerHTML=h;
+  if(document.getElementById('acc-company').classList.contains('show')) renderOverviewChart('company');
   if(_activeOvCard.company)_showOvDetail('company');
 }
 
@@ -473,6 +533,7 @@ function renderCategoryCards(){
     h+=_ovCard(keys[i],c.orders,c.gross,c.pl,margin,OV_COLORS[i%OV_COLORS.length],'category',keys[i]);
   }
   document.getElementById('categoryCards').innerHTML=h;
+  if(document.getElementById('acc-category').classList.contains('show')) renderOverviewChart('category');
   if(_activeOvCard.category)_showOvDetail('category');
 }
 
@@ -500,15 +561,6 @@ function _showOvDetail(section){
   var key=_activeOvCard[section];
   if(!key){document.getElementById(section+'Detail').innerHTML='';return;}
   var detailEl=document.getElementById(section+'Detail');
-
-  if(section==='month'){
-    var months=FILTERED_DATA.byMonth||[];
-    var m=null;for(var i=0;i<months.length;i++){if(months[i].month===key){m=months[i];break;}}
-    if(!m){detailEl.innerHTML='';return;}
-    var margin=m.gross>0?(m.pl/m.gross*100):0;
-    detailEl.innerHTML='<div class="tbox"><h3>'+key+' Details</h3><div class="twrap"><table><thead><tr><th>Orders</th><th>Qty</th><th>Gross</th><th>Net</th><th>Tax</th><th>COP</th><th>P/L</th><th>Margin</th></tr></thead><tbody><tr><td>'+fmt(m.orders)+'</td><td>'+fmt(m.qty)+'</td><td>'+fmtCur(m.gross)+'</td><td>'+fmtCur(m.net)+'</td><td>'+fmtCur(m.tax)+'</td><td>'+fmtCur(m.cop)+'</td><td class="'+(m.pl>=0?'profit':'loss')+'">'+fmtCur(m.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr></tbody></table></div></div>';
-    return;
-  }
 
   if(section==='platform'){
     var bp=FILTERED_DATA.byPlatform||{};
