@@ -350,7 +350,7 @@ function applyDateFilter(){
     var filtMonths=Object.values(monthMap).sort(function(a,b){return a.month<b.month?-1:1;});
     var fp={short:{count:0,totalDiff:0,byPlatform:{}},excess:{count:0,totalDiff:0,byPlatform:{}},equal:{count:0,totalDiff:0,byPlatform:{}}};
     for(var i=0;i<filtDaily.length;i++){var dd=filtDaily[i];fp.short.count+=(dd.sc||0);fp.short.totalDiff+=(dd.sd||0);fp.excess.count+=(dd.ec||0);fp.excess.totalDiff+=(dd.ed||0);fp.equal.count+=(dd.qc||0);}
-    var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,pricing:fp,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
+    var fd={summary:sm,daily:filtDaily,byMonth:filtMonths,pricing:fp,byPlatform:src.byPlatform,byCompany:src.byCompany,byCategory:src.byCategory,bySubCategory:src.bySubCategory,topSkus:src.topSkus,platforms:src.platforms,companies:src.companies,timestamp:src.timestamp};
     DATA=fd;FILTERED_DATA=fd;renderAll();
   }
   // Fetch accurate server data
@@ -433,8 +433,9 @@ function renderOverviewCards(){
 }
 
 function _renderTableCard(section, dataObj, keys) {
-  if(!keys.length) return '';
+  if(!keys.length) return '<div style="color:#888;padding:10px;font-size:12px">No data available</div>';
   var h = '<div class="tbox" style="margin-bottom:8px"><div class="twrap"><table style="width:100%"><thead><tr><th style="text-align:left;width:30%">NAME</th><th>ORDERS</th><th>REVENUE</th><th>PROFIT</th><th>MARGIN</th></tr></thead><tbody>';
+  var totOrd=0,totGross=0,totPl=0;
   for(var i=0;i<keys.length;i++){
     var k = keys[i];
     var p = dataObj[k];
@@ -445,6 +446,7 @@ function _renderTableCard(section, dataObj, keys) {
     var color = OV_COLORS[i%OV_COLORS.length];
     var isActive = _activeOvCard[section] === k;
     var rowBg = isActive ? 'background:#1a3055' : '';
+    totOrd+=(p.orders||0);totGross+=(p.gross||0);totPl+=(p.pl||0);
     h += '<tr style="cursor:pointer;'+rowBg+'" onclick="toggleOvDetail(\''+section+'\',\''+k.replace(/'/g,"\\'")+'\')">'
        + '<td style="text-align:left;border-left:4px solid '+color+';font-weight:700;color:#fff;white-space:normal;word-break:break-word">' + k + '</td>'
        + '<td>' + fmt(p.orders) + '</td>'
@@ -453,6 +455,18 @@ function _renderTableCard(section, dataObj, keys) {
        + '<td class="'+mClass+'">' + fmtPct(margin) + '</td>'
        + '</tr>';
   }
+  // Totals row
+  var totMargin=totGross>0?(totPl/totGross*100):0;
+  var tPlClass=totPl>=0?'profit':'loss';
+  var tPlSign=totPl>=0?'+':'';
+  var tMClass=totMargin>=0?'profit':'loss';
+  h += '<tr style="background:#0a1e40;font-weight:700;border-top:2px solid #4fc3f7">'
+     + '<td style="text-align:left;color:#4fc3f7;font-weight:700">TOTAL</td>'
+     + '<td style="color:#fff;font-weight:700">'+fmt(totOrd)+'</td>'
+     + '<td style="color:#fff;font-weight:700">'+fmtCur(totGross)+'</td>'
+     + '<td class="'+tPlClass+'" style="font-weight:700">'+tPlSign+fmtCur(totPl)+'</td>'
+     + '<td class="'+tMClass+'" style="font-weight:700">'+fmtPct(totMargin)+'</td>'
+     + '</tr>';
   h += '</tbody></table></div></div>';
   return h;
 }
