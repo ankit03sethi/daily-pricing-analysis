@@ -146,26 +146,17 @@ tr:hover td{background:#1f2b47}
 <!-- OVERVIEW SECTION -->
 <div class="section-title" style="color:#e09f3e;font-size:13px;margin-top:8px">OVERVIEW</div>
 
-<button class="acc-btn" id="btn-platform" onclick="toggleAcc('platform')">PLATFORM <span id="arr-platform">▼</span></button>
-<div class="acc-content" id="acc-platform">
-  <div class="chart-container"><canvas id="chart-platform"></canvas></div>
-  <div class="cards" id="platformCards"></div>
-  <div class="ov-detail" id="platformDetail"></div>
-</div>
+<div class="ov-heading">PLATFORM</div>
+<div id="platformCards"></div>
+<div class="ov-detail" id="platformDetail"></div>
 
-<button class="acc-btn" id="btn-company" onclick="toggleAcc('company')">COMPANY <span id="arr-company">▼</span></button>
-<div class="acc-content" id="acc-company">
-  <div class="chart-container"><canvas id="chart-company"></canvas></div>
-  <div class="cards" id="companyCards"></div>
-  <div class="ov-detail" id="companyDetail"></div>
-</div>
+<div class="ov-heading">COMPANY</div>
+<div id="companyCards"></div>
+<div class="ov-detail" id="companyDetail"></div>
 
-<button class="acc-btn" id="btn-category" onclick="toggleAcc('category')">CATEGORY <span id="arr-category">▼</span></button>
-<div class="acc-content" id="acc-category">
-  <div class="chart-container"><canvas id="chart-category"></canvas></div>
-  <div class="cards" id="categoryCards"></div>
-  <div class="ov-detail" id="categoryDetail"></div>
-</div>
+<div class="ov-heading">CATEGORY</div>
+<div id="categoryCards"></div>
+<div class="ov-detail" id="categoryDetail"></div>
 
 <div class="ft" id="lastUp"></div>
 </div>
@@ -421,20 +412,6 @@ function renderPricing(){
 // ===== OVERVIEW CARDS (Month, Platform, Company, Category) =====
 var _activeOvCard={platform:'',company:'',category:''};
 var OV_COLORS=['#4fc3f7','#39ff14','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee','#ff9800','#8bc34a'];
-var _charts={platform:null,company:null,category:null};
-
-function toggleAcc(sec){
-  var btn=document.getElementById('btn-'+sec);
-  var content=document.getElementById('acc-'+sec);
-  if(btn.classList.contains('active')){
-    btn.classList.remove('active');
-    content.classList.remove('show');
-  }else{
-    btn.classList.add('active');
-    content.classList.add('show');
-    renderOverviewChart(sec);
-  }
-}
 
 function renderOverviewCards(){
   renderPlatformCards();
@@ -442,98 +419,47 @@ function renderOverviewCards(){
   renderCategoryCards();
 }
 
-function renderOverviewChart(section){
-  var canvas = document.getElementById('chart-'+section);
-  if(!canvas)return;
-  var ctx = canvas.getContext('2d');
-  
-  var dataObj = {};
-  if(section==='platform') dataObj = FILTERED_DATA.byPlatform||{};
-  else if(section==='company') dataObj = FILTERED_DATA.byCompany||{};
-  else if(section==='category') dataObj = FILTERED_DATA.byCategory||{};
-  
-  var keys = Object.keys(dataObj).sort(function(a,b){return dataObj[b].gross - dataObj[a].gross;});
-  var labels = []; var grossData = []; var plData = [];
-  
+function _renderTableCard(section, dataObj, keys) {
+  if(!keys.length) return '';
+  var h = '<div class="tbox" style="margin-bottom:8px"><div class="twrap"><table><thead><tr><th style="text-align:left">NAME</th><th>ORDERS</th><th>REVENUE</th><th>PROFIT</th><th>MARGIN</th></tr></thead><tbody>';
   for(var i=0;i<keys.length;i++){
-    labels.push(keys[i].length>15?keys[i].substring(0,12)+'...':keys[i]);
-    grossData.push(dataObj[keys[i]].gross);
-    plData.push(dataObj[keys[i]].pl);
+    var k = keys[i];
+    var p = dataObj[k];
+    var margin = p.gross > 0 ? (p.pl / p.gross * 100) : 0;
+    var plClass = p.pl >= 0 ? 'profit' : 'loss';
+    var plSign = p.pl >= 0 ? '+' : '';
+    var mClass = margin >= 0 ? 'profit' : 'loss';
+    var color = OV_COLORS[i%OV_COLORS.length];
+    h += '<tr style="cursor:pointer" onclick="toggleOvDetail(\''+section+'\',\''+k.replace(/'/g,"\\'")+'\')">'
+       + '<td style="text-align:left;border-left:4px solid '+color+';font-weight:700;color:#fff">' + k + '</td>'
+       + '<td>' + fmt(p.orders) + '</td>'
+       + '<td>' + fmtCur(p.gross) + '</td>'
+       + '<td class="'+plClass+'">' + plSign + fmtCur(p.pl) + '</td>'
+       + '<td class="'+mClass+'">' + fmtPct(margin) + '</td>'
+       + '</tr>';
   }
-  
-  if(_charts[section]) _charts[section].destroy();
-  
-  _charts[section] = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label: 'Gross Revenue', data: grossData, backgroundColor: '#4fc3f7', borderRadius: 4, order: 2 },
-        { label: 'Profit / Loss', data: plData, backgroundColor: plData.map(function(v){return v>=0?'#39ff14':'#dc2f02';}), borderRadius: 4, order: 1 }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#aaa' } } },
-      scales: {
-        x: { ticks: { color: '#ccc', font:{size:10} }, grid: { color: '#222' } },
-        y: { ticks: { color: '#ccc', callback: function(v){return '₹'+(v>=1000?Math.round(v/1000)+'k':v);} }, grid: { color: '#222' } }
-      }
-    }
-  });
-}
-
-function _ovCard(name,orders,gross,pl,margin,color,section,key){
-  var plClass=pl>=0?'profit':'loss';
-  var plSign=pl>=0?'+':'';
-  var mClass=margin>=0?'profit':'loss';
-  var isActive=_activeOvCard[section]===key;
-  return '<div class="ov-card'+(isActive?' active':'')+'" style="border-left-color:'+color+'" onclick="toggleOvDetail(\''+section+'\',\''+key.replace(/'/g,"\\'")+'\')">'
-    +'<div class="ov-name" title="'+name.replace(/"/g,"&quot;")+'">'+name+'</div>'
-    +'<div class="ov-row"><span>Orders</span><span class="ov-val">'+fmt(orders)+'</span></div>'
-    +'<div class="ov-row"><span>Revenue</span><span class="ov-val">'+fmtCur(gross)+'</span></div>'
-    +'<div class="ov-row"><span>Profit</span><span class="ov-val '+plClass+'">'+plSign+fmtCur(pl)+'</span></div>'
-    +'<div class="ov-row"><span>Margin</span><span class="ov-val '+mClass+'">'+fmtPct(margin)+'</span></div>'
-    +'</div>';
+  h += '</tbody></table></div></div>';
+  return h;
 }
 
 function renderPlatformCards(){
   var bp=FILTERED_DATA.byPlatform||{};
   var keys=Object.keys(bp).sort(function(a,b){return bp[b].gross-bp[a].gross;});
-  var h='';
-  for(var i=0;i<keys.length;i++){
-    var p=bp[keys[i]];var margin=p.gross>0?(p.pl/p.gross*100):0;
-    h+=_ovCard(keys[i],p.orders,p.gross,p.pl,margin,OV_COLORS[i%OV_COLORS.length],'platform',keys[i]);
-  }
-  document.getElementById('platformCards').innerHTML=h;
-  if(document.getElementById('acc-platform').classList.contains('show')) renderOverviewChart('platform');
+  document.getElementById('platformCards').innerHTML = _renderTableCard('platform', bp, keys);
   if(_activeOvCard.platform)_showOvDetail('platform');
 }
 
 function renderCompanyCards(){
   var bc=FILTERED_DATA.byCompany||{};
   var keys=Object.keys(bc).sort(function(a,b){return bc[b].gross-bc[a].gross;});
-  var h='';
-  for(var i=0;i<keys.length;i++){
-    var c=bc[keys[i]];var margin=c.gross>0?(c.pl/c.gross*100):0;
-    h+=_ovCard(keys[i],c.orders,c.gross,c.pl,margin,OV_COLORS[i%OV_COLORS.length],'company',keys[i]);
-  }
-  document.getElementById('companyCards').innerHTML=h;
-  if(document.getElementById('acc-company').classList.contains('show')) renderOverviewChart('company');
+  document.getElementById('companyCards').innerHTML = _renderTableCard('company', bc, keys);
   if(_activeOvCard.company)_showOvDetail('company');
 }
 
 function renderCategoryCards(){
   var bc=FILTERED_DATA.byCategory||{};
   var keys=Object.keys(bc).sort(function(a,b){return bc[b].gross-bc[a].gross;});
-  var h='';
-  for(var i=0;i<keys.length;i++){
-    var c=bc[keys[i]];var margin=c.gross>0?(c.pl/c.gross*100):0;
-    h+=_ovCard(keys[i],c.orders,c.gross,c.pl,margin,OV_COLORS[i%OV_COLORS.length],'category',keys[i]);
-  }
-  document.getElementById('categoryCards').innerHTML=h;
-  if(document.getElementById('acc-category').classList.contains('show')) renderOverviewChart('category');
+  document.getElementById('categoryCards').innerHTML = _renderTableCard('category', bc, keys);
   if(_activeOvCard.category)_showOvDetail('category');
 }
 
