@@ -146,17 +146,29 @@ tr:hover td{background:#1f2b47}
 <!-- OVERVIEW SECTION -->
 <div class="section-title" style="color:#e09f3e;font-size:13px;margin-top:8px">OVERVIEW</div>
 
-<div class="ov-heading">PLATFORM</div>
-<div id="platformCards"></div>
-<div class="ov-detail" id="platformDetail"></div>
+<button class="acc-btn" id="btn-platform" onclick="toggleAcc('platform')">PLATFORM <span id="arr-platform">▼</span></button>
+<div class="acc-content" id="acc-platform">
+  <div id="platformCards"></div>
+  <div class="ov-detail" id="platformDetail"></div>
+</div>
 
-<div class="ov-heading">COMPANY</div>
-<div id="companyCards"></div>
-<div class="ov-detail" id="companyDetail"></div>
+<button class="acc-btn" id="btn-company" onclick="toggleAcc('company')">COMPANY <span id="arr-company">▼</span></button>
+<div class="acc-content" id="acc-company">
+  <div id="companyCards"></div>
+  <div class="ov-detail" id="companyDetail"></div>
+</div>
 
-<div class="ov-heading">CATEGORY</div>
-<div id="categoryCards"></div>
-<div class="ov-detail" id="categoryDetail"></div>
+<button class="acc-btn" id="btn-category" onclick="toggleAcc('category')">CATEGORY <span id="arr-category">▼</span></button>
+<div class="acc-content" id="acc-category">
+  <div id="categoryCards"></div>
+  <div class="ov-detail" id="categoryDetail"></div>
+</div>
+
+<button class="acc-btn" id="btn-subCategory" onclick="toggleAcc('subCategory')">SUB CATEGORY <span id="arr-subCategory">▼</span></button>
+<div class="acc-content" id="acc-subCategory">
+  <div id="subCategoryCards"></div>
+  <div class="ov-detail" id="subCategoryDetail"></div>
+</div>
 
 <div class="ft" id="lastUp"></div>
 </div>
@@ -410,18 +422,19 @@ function renderPricing(){
 }
 
 // ===== OVERVIEW CARDS (Month, Platform, Company, Category) =====
-var _activeOvCard={platform:'',company:'',category:''};
+var _activeOvCard={platform:'',company:'',category:'',subCategory:''};
 var OV_COLORS=['#4fc3f7','#39ff14','#e09f3e','#a855f7','#f72585','#00bcd4','#ff6b35','#7b68ee','#ff9800','#8bc34a'];
 
 function renderOverviewCards(){
   renderPlatformCards();
   renderCompanyCards();
   renderCategoryCards();
+  renderSubCategoryCards();
 }
 
 function _renderTableCard(section, dataObj, keys) {
   if(!keys.length) return '';
-  var h = '<div class="tbox" style="margin-bottom:8px"><div class="twrap"><table><thead><tr><th style="text-align:left">NAME</th><th>ORDERS</th><th>REVENUE</th><th>PROFIT</th><th>MARGIN</th></tr></thead><tbody>';
+  var h = '<div class="tbox" style="margin-bottom:8px"><div class="twrap"><table style="width:100%"><thead><tr><th style="text-align:left;width:30%">NAME</th><th>ORDERS</th><th>REVENUE</th><th>PROFIT</th><th>MARGIN</th></tr></thead><tbody>';
   for(var i=0;i<keys.length;i++){
     var k = keys[i];
     var p = dataObj[k];
@@ -430,8 +443,10 @@ function _renderTableCard(section, dataObj, keys) {
     var plSign = p.pl >= 0 ? '+' : '';
     var mClass = margin >= 0 ? 'profit' : 'loss';
     var color = OV_COLORS[i%OV_COLORS.length];
-    h += '<tr style="cursor:pointer" onclick="toggleOvDetail(\''+section+'\',\''+k.replace(/'/g,"\\'")+'\')">'
-       + '<td style="text-align:left;border-left:4px solid '+color+';font-weight:700;color:#fff">' + k + '</td>'
+    var isActive = _activeOvCard[section] === k;
+    var rowBg = isActive ? 'background:#1a3055' : '';
+    h += '<tr style="cursor:pointer;'+rowBg+'" onclick="toggleOvDetail(\''+section+'\',\''+k.replace(/'/g,"\\'")+'\')">'
+       + '<td style="text-align:left;border-left:4px solid '+color+';font-weight:700;color:#fff;white-space:normal;word-break:break-word">' + k + '</td>'
        + '<td>' + fmt(p.orders) + '</td>'
        + '<td>' + fmtCur(p.gross) + '</td>'
        + '<td class="'+plClass+'">' + plSign + fmtCur(p.pl) + '</td>'
@@ -463,24 +478,29 @@ function renderCategoryCards(){
   if(_activeOvCard.category)_showOvDetail('category');
 }
 
+function renderSubCategoryCards(){
+  var bc=FILTERED_DATA.bySubCategory||{};
+  var keys=Object.keys(bc).sort(function(a,b){return bc[b].gross-bc[a].gross;});
+  var el = document.getElementById('subCategoryCards');
+  if(el) {
+    el.innerHTML = _renderTableCard('subCategory', bc, keys);
+    if(_activeOvCard.subCategory)_showOvDetail('subCategory');
+  }
+}
+
 function toggleOvDetail(section,key){
   if(_activeOvCard[section]===key){
     _activeOvCard[section]='';
     document.getElementById(section+'Detail').innerHTML='';
-    // Remove active class
-    var cards=document.getElementById(section+'Cards').querySelectorAll('.ov-card');
-    for(var i=0;i<cards.length;i++)cards[i].classList.remove('active');
-    return;
+  } else {
+    _activeOvCard[section]=key;
+    _showOvDetail(section);
   }
-  _activeOvCard[section]=key;
-  // Update active class
-  var cards=document.getElementById(section+'Cards').querySelectorAll('.ov-card');
-  for(var i=0;i<cards.length;i++)cards[i].classList.remove('active');
-  // Find and activate the clicked card
-  for(var i=0;i<cards.length;i++){
-    if(cards[i].querySelector('.ov-name').textContent===key)cards[i].classList.add('active');
-  }
-  _showOvDetail(section);
+  // Re-render just this section's table to update the active row highlight
+  if(section==='platform') renderPlatformCards();
+  if(section==='company') renderCompanyCards();
+  if(section==='category') renderCategoryCards();
+  if(section==='subCategory') renderSubCategoryCards();
 }
 
 function _showOvDetail(section){
@@ -510,6 +530,16 @@ function _showOvDetail(section){
 
   if(section==='category'){
     var bc=FILTERED_DATA.byCategory||{};
+    var c=bc[key];
+    if(!c){detailEl.innerHTML='';return;}
+    var margin=c.gross>0?(c.pl/c.gross*100):0;
+    var h='<div class="tbox"><h3>'+key+' Details</h3><div class="twrap"><table><thead><tr><th>Orders</th><th>Qty</th><th>Gross</th><th>Net</th><th>COP</th><th>P/L</th><th>Margin</th></tr></thead><tbody><tr><td>'+fmt(c.orders)+'</td><td>'+fmt(c.qty)+'</td><td>'+fmtCur(c.gross)+'</td><td>'+fmtCur(c.net)+'</td><td>'+fmtCur(c.cop)+'</td><td class="'+(c.pl>=0?'profit':'loss')+'">'+fmtCur(c.pl)+'</td><td class="'+(margin>=0?'profit':'loss')+'">'+fmtPct(margin)+'</td></tr></tbody></table></div></div>';
+    detailEl.innerHTML=h;
+    return;
+  }
+
+  if(section==='subCategory'){
+    var bc=FILTERED_DATA.bySubCategory||{};
     var c=bc[key];
     if(!c){detailEl.innerHTML='';return;}
     var margin=c.gross>0?(c.pl/c.gross*100):0;
@@ -777,6 +807,21 @@ function fmtMetric(val,type){
 
 function openPricingModal(type){var labels={short:'SHORT',excess:'EXCESS',equal:'EQUAL'};openModal(type,labels[type]||type.toUpperCase());}
 function closePricingModal(){closeModal();}
+
+// ===== ACCORDION TOGGLE =====
+function toggleAcc(section){
+  var btn=document.getElementById('btn-'+section);
+  var content=document.getElementById('acc-'+section);
+  if(!btn||!content)return;
+  var isOpen=content.classList.contains('show');
+  if(isOpen){
+    content.classList.remove('show');
+    btn.classList.remove('active');
+  } else {
+    content.classList.add('show');
+    btn.classList.add('active');
+  }
+}
 
 // ===== INIT =====
 window.onload=loadData;
