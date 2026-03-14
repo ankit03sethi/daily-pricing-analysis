@@ -400,7 +400,10 @@ function renderSummary(){
   html+=card('Total COP',fmtCur(s.cop),'pk','cop');
   html+=cardPL('Total P/L',s.pl);
   html+=card('Avg Order Value',fmtCur(s.avgOrderValue),'b','');
-  html+=card('Margin',fmtPct(s.margin),s.margin>=0?'g':'r','');
+  var revMargin=s.grossReceived>0?(s.pl/s.grossReceived*100):0;
+  var copMargin=s.cop>0?(s.pl/s.cop*100):0;
+  html+=card('Revenue Margin',fmtPct(revMargin),revMargin>=0?'g':'r','revMargin');
+  html+=card('COP Margin',fmtPct(copMargin),copMargin>=0?'g':'r','copMargin');
   document.getElementById('summaryCards').innerHTML=html;
 }
 function card(label,val,cls,metric){
@@ -441,38 +444,44 @@ function renderOverviewCards(){
 
 function _renderTableCard(section, dataObj, keys) {
   if(!keys.length) return '<div style="color:#888;padding:10px;font-size:12px">No data available</div>';
-  var h = '<div class="tbox" style="margin-bottom:8px"><div class="twrap"><table style="width:100%"><thead><tr><th style="text-align:left;width:30%">NAME</th><th>ORDERS</th><th>REVENUE</th><th>PROFIT</th><th>MARGIN</th></tr></thead><tbody>';
-  var totOrd=0,totGross=0,totPl=0;
+  var h = '<div class="tbox" style="margin-bottom:8px"><div class="twrap"><table style="width:100%"><thead><tr><th style="text-align:left;width:25%">NAME</th><th>ORDERS</th><th>REVENUE</th><th>PROFIT</th><th>REV MARGIN</th><th>COP MARGIN</th></tr></thead><tbody>';
+  var totOrd=0,totGross=0,totPl=0,totCop=0;
   for(var i=0;i<keys.length;i++){
     var k = keys[i];
     var p = dataObj[k];
-    var margin = p.gross > 0 ? (p.pl / p.gross * 100) : 0;
+    var revMargin = p.gross > 0 ? (p.pl / p.gross * 100) : 0;
+    var copMargin = p.cop > 0 ? (p.pl / p.cop * 100) : 0;
     var plClass = p.pl >= 0 ? 'profit' : 'loss';
     var plSign = p.pl >= 0 ? '+' : '';
-    var mClass = margin >= 0 ? 'profit' : 'loss';
+    var rmClass = revMargin >= 0 ? 'profit' : 'loss';
+    var cmClass = copMargin >= 0 ? 'profit' : 'loss';
     var color = OV_COLORS[i%OV_COLORS.length];
     var isActive = _activeOvCard[section] === k;
     var rowBg = isActive ? 'background:#1a3055' : '';
-    totOrd+=(p.orders||0);totGross+=(p.gross||0);totPl+=(p.pl||0);
+    totOrd+=(p.orders||0);totGross+=(p.gross||0);totPl+=(p.pl||0);totCop+=(p.cop||0);
     h += '<tr style="cursor:pointer;'+rowBg+'" onclick="toggleOvDetail(\''+section+'\',\''+k.replace(/'/g,"\\'")+'\')">'
        + '<td style="text-align:left;border-left:4px solid '+color+';font-weight:700;color:#fff;white-space:normal;word-break:break-word">' + k + '</td>'
        + '<td>' + fmt(p.orders) + '</td>'
        + '<td>' + fmtCur(p.gross) + '</td>'
        + '<td class="'+plClass+'">' + plSign + fmtCur(p.pl) + '</td>'
-       + '<td class="'+mClass+'">' + fmtPct(margin) + '</td>'
+       + '<td class="'+rmClass+'">' + fmtPct(revMargin) + '</td>'
+       + '<td class="'+cmClass+'">' + fmtPct(copMargin) + '</td>'
        + '</tr>';
   }
   // Totals row
-  var totMargin=totGross>0?(totPl/totGross*100):0;
+  var totRevMargin=totGross>0?(totPl/totGross*100):0;
+  var totCopMargin=totCop>0?(totPl/totCop*100):0;
   var tPlClass=totPl>=0?'profit':'loss';
   var tPlSign=totPl>=0?'+':'';
-  var tMClass=totMargin>=0?'profit':'loss';
+  var tRmClass=totRevMargin>=0?'profit':'loss';
+  var tCmClass=totCopMargin>=0?'profit':'loss';
   h += '<tr style="background:#0a1e40;font-weight:700;border-top:2px solid #4fc3f7">'
      + '<td style="text-align:left;color:#4fc3f7;font-weight:700">TOTAL</td>'
      + '<td style="color:#fff;font-weight:700">'+fmt(totOrd)+'</td>'
      + '<td style="color:#fff;font-weight:700">'+fmtCur(totGross)+'</td>'
      + '<td class="'+tPlClass+'" style="font-weight:700">'+tPlSign+fmtCur(totPl)+'</td>'
-     + '<td class="'+tMClass+'" style="font-weight:700">'+fmtPct(totMargin)+'</td>'
+     + '<td class="'+tRmClass+'" style="font-weight:700">'+fmtPct(totRevMargin)+'</td>'
+     + '<td class="'+tCmClass+'" style="font-weight:700">'+fmtPct(totCopMargin)+'</td>'
      + '</tr>';
   h += '</tbody></table></div></div>';
   return h;
@@ -669,7 +678,10 @@ function renderDrillPlatforms(){
       h+='<div class="di-name">'+plats[i]+'</div><div class="di-count" style="color:'+pColor+'">'+fmt(pp.count)+'</div><div class="di-amt" style="color:'+pColor+'">'+pSign+fmtCur(Math.abs(pp.diff))+'</div></div>';
     }
   } else {
-    var totalVal=0;for(var k in bp)totalVal+=getMetricVal(bp[k],DM.type);
+    var isMargin=(DM.type==='revMargin'||DM.type==='copMargin');
+    var totalVal=0;
+    if(isMargin){var tPl=0,tDiv=0;for(var k in bp){tPl+=(bp[k].pl||0);tDiv+=(DM.type==='revMargin'?(bp[k].gross||0):(bp[k].cop||0));}totalVal=tDiv>0?(tPl/tDiv*100):0;}
+    else{for(var k in bp)totalVal+=getMetricVal(bp[k],DM.type);}
     h+='<div class="drill-item all-item" onclick="drillToPlatform(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmtMetric(totalVal,DM.type)+'</div></div>';
     var sorted=Object.keys(bp).sort(function(a,b){return getMetricVal(bp[b],DM.type)-getMetricVal(bp[a],DM.type);});
     for(var i=0;i<sorted.length;i++){
@@ -715,16 +727,19 @@ function renderDrillCompanies(){
     }
     DM.companies=companies;
   } else {
-    var compMap={};
+    var compMap={};var compRaw={};
     if(DM.platform==='ALL'){
       var bc=FILTERED_DATA.byCompany||{};
-      for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
+      for(var k in bc){compMap[k]=getMetricVal(bc[k],DM.type);compRaw[k]=bc[k];}
     }else{
       var bp=FILTERED_DATA.byPlatform||{};
       var bc=(bp[DM.platform]&&bp[DM.platform].byCompany)?bp[DM.platform].byCompany:{};
-      for(var k in bc)compMap[k]=getMetricVal(bc[k],DM.type);
+      for(var k in bc){compMap[k]=getMetricVal(bc[k],DM.type);compRaw[k]=bc[k];}
     }
-    var totalVal=0;for(var k in compMap)totalVal+=compMap[k];
+    var isMargin=(DM.type==='revMargin'||DM.type==='copMargin');
+    var totalVal=0;
+    if(isMargin){var tPl=0,tDiv=0;for(var k in compRaw){tPl+=(compRaw[k].pl||0);tDiv+=(DM.type==='revMargin'?(compRaw[k].gross||0):(compRaw[k].cop||0));}totalVal=tDiv>0?(tPl/tDiv*100):0;}
+    else{for(var k in compMap)totalVal+=compMap[k];}
     h+='<div class="drill-item all-item" onclick="drillToCompany(\'\')"><div class="di-name">ALL</div><div class="di-count">'+fmtMetric(totalVal,DM.type)+'</div></div>';
     var sorted=Object.keys(compMap).sort(function(a,b){return compMap[b]-compMap[a];});
     for(var i=0;i<sorted.length;i++){
@@ -839,11 +854,14 @@ function getMetricVal(obj,type){
     case 'tax':return obj.tax||0;
     case 'cop':return obj.cop||0;
     case 'pl':return obj.pl||0;
+    case 'revMargin':return obj.gross>0?((obj.pl||0)/(obj.gross)*100):0;
+    case 'copMargin':return obj.cop>0?((obj.pl||0)/(obj.cop)*100):0;
     default:return 0;
   }
 }
 function fmtMetric(val,type){
   if(type==='orders'||type==='qty')return fmt(val);
+  if(type==='revMargin'||type==='copMargin')return fmtPct(val);
   return fmtCur(val);
 }
 
